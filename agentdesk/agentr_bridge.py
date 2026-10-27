@@ -55,8 +55,17 @@ class AgentRBridge:
         if not adapter:
             raise ValueError(f"Unknown agent '{agent}'")
 
-        title, workdir, user_prompts, assistant_msgs = adapter.get_session_details(cid)
-        briefing = build_handoff_briefing(agent, cid)
+        if hasattr(adapter, "extract_briefing_context"):
+            title, workdir, user_prompts, assistant_msgs = adapter.extract_briefing_context(cid, "")
+        elif hasattr(adapter, "get_session_details"):
+            title, workdir, user_prompts, assistant_msgs = adapter.get_session_details(cid)
+        else:
+            title, workdir, user_prompts, assistant_msgs = cid, "", [], []
+
+        try:
+            briefing, _, _ = build_handoff_briefing(agent, cid, workdir, title, user_prompts, assistant_msgs)
+        except Exception:
+            briefing = f"# Session {cid}\n**Title**: {title}\n**Agent**: {agent}"
 
         return {
             "agent": agent,
@@ -102,8 +111,14 @@ class AgentRBridge:
         if not adapter or not target_adapter:
             raise ValueError(f"Invalid agent transfer: '{agent}' -> '{target_agent}'")
 
-        title, workdir, _, _ = adapter.get_session_details(cid)
-        briefing = build_handoff_briefing(agent, cid)
+        if hasattr(adapter, "extract_briefing_context"):
+            title, workdir, user_prompts, assistant_msgs = adapter.extract_briefing_context(cid, "")
+        elif hasattr(adapter, "get_session_details"):
+            title, workdir, user_prompts, assistant_msgs = adapter.get_session_details(cid)
+        else:
+            title, workdir, user_prompts, assistant_msgs = cid, "", [], []
+
+        briefing, _, _ = build_handoff_briefing(agent, cid, workdir, title, user_prompts, assistant_msgs)
 
         target_adapter.receive_handoff(briefing, title, workdir or self.workspace_dir)
         return {"status": "ok", "target": target_adapter.display_name, "title": title}

@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from typing import Optional, Dict, Any
 
 from .herdr_bridge import HerdrBridge
@@ -92,6 +92,15 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
         if auth.startswith("Bearer ") and auth[7:].strip() == secret:
             return True
 
+        # Check Cookie: agentdesk_secret=<secret>
+        cookie_header = self.headers.get("Cookie", "")
+        for item in cookie_header.split(";"):
+            item = item.strip()
+            if item.startswith("agentdesk_secret="):
+                val = item[len("agentdesk_secret="):].strip()
+                if val == secret:
+                    return True
+
         return False
 
     def send_json(self, data: Any, status: int = 200) -> None:
@@ -120,72 +129,74 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
 
-        # Authenticate all API endpoints and non-public files
-        if not self.check_auth():
-            self.send_error_json("Unauthorized: valid ?secret= required", 401)
-            return
+        is_api = path.startswith("/api/") or path in ("/snapshot.json", "/events")
 
-        # API: Real-time Herdr snapshot
-        if path in ("/api/status", "/snapshot.json"):
-            snap = HERDR.get_snapshot()
-            self.send_json({"status": "ok", "snapshot": snap})
-            return
-
-        # API: Read specific pane terminal output
-        if path.startswith("/api/pane/") and path.endswith("/read"):
-            parts = path.strip("/").split("/")
-            if len(parts) >= 3:
-                pane_id = parts[2]
-                lines_str = qs.get("lines", ["80"])[0]
-                lines = int(lines_str) if lines_str.isdigit() else 80
-                output = HERDR.read_pane(pane_id, lines=lines)
-                self.send_json({"pane_id": pane_id, "output": output})
+        if is_api:
+            if not self.check_auth():
+                self.send_error_json("Unauthorized: valid ?secret= required", 401)
                 return
 
-        # API: Unified recent sessions via AgentR
-        if path == "/api/sessions":
-            agent_filter = qs.get("agent", [None])[0]
-            limit_str = qs.get("limit", ["50"])[0]
-            limit = int(limit_str) if limit_str.isdigit() else 50
-            sessions = AGENTR.list_sessions(filter_agent=agent_filter, limit=limit)
-            self.send_json({"status": "ok", "sessions": sessions})
-            return
-
-        # API: Session transcript details via AgentR
-        if path == "/api/sessions/details":
-            agent = qs.get("agent", [""])[0]
-            cid = qs.get("cid", [""])[0]
-            if not agent or not cid:
-                self.send_error_json("Missing 'agent' or 'cid' param")
+            # API: Real-time Herdr snapshot
+            if path in ("/api/status", "/snapshot.json"):
+                snap = HERDR.get_snapshot()
+                self.send_json({"status": "ok", "snapshot": snap})
                 return
-            try:
-                details = AGENTR.get_session_details(agent, cid)
-                self.send_json({"status": "ok", "details": details})
-            except Exception as e:
-                self.send_error_json(str(e), 404)
-            return
 
-        # API: Deep search across all agent sessions
-        if path == "/api/search":
-            q = qs.get("q", [""])[0]
-            agent_filter = qs.get("agent", [None])[0]
-            if not q:
-                self.send_json({"status": "ok", "results": []})
+            # API: Read specific pane terminal output
+            if path.startswith("/api/pane/") and path.endswith("/read"):
+                parts = path.strip("/").split("/")
+                if len(parts) >= 3:
+                    pane_id = unquote(parts[2])
+                    lines_str = qs.get("lines", ["80"])[0]
+                    lines = int(lines_str) if lines_str.isdigit() else 80
+                    output = HERDR.read_pane(pane_id, lines=lines)
+                    self.send_json({"pane_id": pane_id, "output": output})
+                    return
+
+            # API: Unified recent sessions via AgentR
+            if path == "/api/sessions":
+                agent_filter = qs.get("agent", [None])[0]
+                limit_str = qs.get("limit", ["50"])[0]
+                limit = int(limit_str) if limit_str.isdigit() else 50
+                sessions = AGENTR.list_sessions(filter_agent=agent_filter, limit=limit)
+                self.send_json({"status": "ok", "sessions": sessions})
                 return
-            results = AGENTR.search_sessions(q, filter_agent=agent_filter)
-            self.send_json({"status": "ok", "query": q, "results": results})
-            return
 
-        # API: AgentR coordination board
-        if path == "/api/board":
-            board = AGENTR.get_board()
-            self.send_json({"status": "ok", "board": board})
-            return
+            # API: Session transcript details via AgentR
+            if path == "/api/sessions/details":
+                agent = qs.get("agent", [""])[0]
+                cid = qs.get("cid", [""])[0]
+                if not agent or not cid:
+                    self.send_error_json("Missing 'agent' or 'cid' param")
+                    return
+                try:
+                    details = AGENTR.get_session_details(agent, cid)
+                    self.send_json({"status": "ok", "details": details})
+                except Exception as e:
+                    self.send_error_json(str(e), 404)
+                return
 
-        # API: Real-time Server-Sent Events (SSE)
-        if path == "/api/events" or path == "/events":
-            self.handle_sse()
-            return
+            # API: Deep search across all agent sessions
+            if path == "/api/search":
+                q = qs.get("q", [""])[0]
+                agent_filter = qs.get("agent", [None])[0]
+                if not q:
+                    self.send_json({"status": "ok", "results": []})
+                    return
+                results = AGENTR.search_sessions(q, filter_agent=agent_filter)
+                self.send_json({"status": "ok", "query": q, "results": results})
+                return
+
+            # API: AgentR coordination board
+            if path == "/api/board":
+                board = AGENTR.get_board()
+                self.send_json({"status": "ok", "board": board})
+                return
+
+            # API: Real-time Server-Sent Events (SSE)
+            if path == "/api/events" or path == "/events":
+                self.handle_sse()
+                return
 
         # Static Web File Serving
         self.serve_static(path)
@@ -204,6 +215,8 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             pane_id = body.get("pane_id")
             if not pane_id and path.startswith("/api/pane/"):
                 pane_id = path.strip("/").split("/")[2]
+            if pane_id:
+                pane_id = unquote(pane_id)
             text = body.get("text", "")
             submit = body.get("submit", True)
             if not pane_id:
@@ -219,6 +232,7 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             if not pane_id:
                 self.send_error_json("Missing 'pane_id'")
                 return
+            pane_id = unquote(pane_id)
             ok = HERDR.send_input(pane_id, "y\n", submit=True)
             self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "approved": True})
             return
@@ -331,6 +345,7 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             pass
 
     def serve_static(self, path: str) -> None:
+        qs = parse_qs(urlparse(self.path).query)
         clean = path.strip("/")
         if not clean or clean == "index.html":
             filename = "index.html"
@@ -354,6 +369,9 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(len(content)))
             self.send_header("Cache-Control", "no-cache")
+            secret = CONFIG.get("secret", "").strip()
+            if secret and (self.check_auth() or qs.get("secret", [""])[0] == secret):
+                self.send_header("Set-Cookie", f"agentdesk_secret={secret}; Path=/; Max-Age=31536000; SameSite=Lax")
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:
