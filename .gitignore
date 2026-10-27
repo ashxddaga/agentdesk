@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.herdr-phone.json
+config.json
+.agentr/
+.env
+android/build/
+android/.gradle/
+android/app/build/
