@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#0a0c10" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="#0d1117" />
+  <circle cx="256" cy="256" r="220" fill="url(#glow)" />
+  <rect x="96" y="96" width="320" height="320" rx="48" fill="#161b22" stroke="url(#grad)" stroke-width="12" />
+  <!-- Terminal Prompt Symbol -->
+  <path d="M 160 210 L 220 256 L 160 302" fill="none" stroke="url(#grad)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Flashing Cursor / Agent Pulse -->
+  <line x1="250" y1="300" x2="340" y2="300" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" />
+  <!-- Mobile Status Indicator Dot -->
+  <circle cx="370" cy="150" r="20" fill="#22c55e" />
+  <circle cx="370" cy="150" r="30" fill="#22c55e" opacity="0.3" />
+</svg>

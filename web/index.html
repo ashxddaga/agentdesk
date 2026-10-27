@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>AgentDesk</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <meta name="theme-color" content="#12161f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header>
+    <div class="brand">
+      <img src="icon.svg" alt="AgentDesk" />
+      <h1>AgentDesk</h1>
+    </div>
+    <div class="conn-badge" id="conn-status">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+  </header>
+
+  <!-- Sticky Approval Attention Banner -->
+  <div id="approval-banner">
+    <div class="banner-content">
+      <div class="banner-title">
+        <span>⚠️</span>
+        <span id="banner-text">Agent needs your approval!</span>
+      </div>
+      <div class="banner-actions">
+        <button class="btn-approve" id="banner-approve-btn">Approve (y)</button>
+        <button class="btn-reject" id="banner-reject-btn">Interrupt (Ctrl+C)</button>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <!-- View 1: Active Agent Cockpit -->
+    <section id="cockpit-view" class="view-section active">
+      <div class="section-header">
+        <h2>Live Agents &amp; Panes</h2>
+        <span class="conn-badge" id="active-agents-badge">0 active</span>
+      </div>
+      <div id="agent-cards-container">
+        <!-- Rendered by app.js -->
+        <div style="color: var(--text-muted); text-align: center; padding: 40px 0;">
+          Checking running sessions…
+        </div>
+      </div>
+    </section>
+
+    <!-- View 2: AgentR Universal Sessions & Search -->
+    <section id="sessions-view" class="view-section">
+      <div class="section-header">
+        <h2>Cross-Agent History</h2>
+      </div>
+      <div class="search-bar">
+        <input type="search" id="session-search-input" class="search-input" placeholder="Search prompts, errors, diffs…" />
+      </div>
+      <div id="sessions-list-container">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- View 3: AgentR Project Blackboard -->
+    <section id="board-view" class="view-section">
+      <div class="section-header">
+        <h2>Project Task Board</h2>
+        <button class="btn-card" id="btn-add-feedback" style="flex: 0 0 auto; padding: 4px 10px;">+ Feedback</button>
+      </div>
+      <div id="board-tasks-container">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Terminal Bottom Sheet Modal -->
+  <div class="sheet-backdrop" id="terminal-sheet-backdrop">
+    <div class="sheet" id="terminal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="terminal-title">Pane Terminal Output</h3>
+        <button class="sheet-close" id="terminal-close-btn">&times;</button>
+      </div>
+      <div class="terminal-box" id="terminal-content">Loading output…</div>
+      <div class="sheet-input-row">
+        <input type="text" class="sheet-input" id="terminal-quick-input" placeholder="Type prompt or command…" />
+        <button class="btn-send" id="terminal-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Details Modal -->
+  <div class="sheet-backdrop" id="session-detail-backdrop">
+    <div class="sheet" id="session-detail-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="session-detail-title">Session Details</h3>
+        <button class="sheet-close" id="session-detail-close-btn">&times;</button>
+      </div>
+      <div class="terminal-box" id="session-detail-content" style="font-family: var(--font-sans); font-size: 13px; line-height: 1.6; color: var(--text);">
+        Loading…
+      </div>
+      <div class="sheet-input-row" style="justify-content: flex-end;">
+        <button class="btn-send" id="btn-handoff-session" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);">Hand off to another agent</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="cockpit-view">
+      <span class="nav-icon">⚡</span>
+      <span>Cockpit</span>
+    </button>
+    <button class="nav-item" data-view="sessions-view">
+      <span class="nav-icon">🔍</span>
+      <span>Sessions</span>
+    </button>
+    <button class="nav-item" data-view="board-view">
+      <span class="nav-icon">📋</span>
+      <span>Board</span>
+    </button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
