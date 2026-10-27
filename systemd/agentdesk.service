@@ -1,0 +1,17 @@
+[Unit]
+Description=AgentDesk — Mobile Control Cockpit & Bridge for Herdr & AgentR
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u -m agentdesk.server
+WorkingDirectory=/home/ashish/Work/agentdesk
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/home/ashish/Work/agentdesk:/home/ashish/Work/agentr
+
+[Install]
+WantedBy=default.target
