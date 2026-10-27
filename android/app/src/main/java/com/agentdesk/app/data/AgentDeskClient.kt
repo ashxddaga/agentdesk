@@ -16,7 +16,7 @@ import java.io.IOException
 
 class AgentDeskClient(
     var baseUrl: String = "http://100.77.2.5:9876",
-    var secret: String = ""
+    var secret: String = "63df263a-e1e4-4854-998c-7b1e8ce33dd4"
 ) {
     private val client = OkHttpClient.Builder().build()
     private val sseClient = EventSources.createFactory(client)
