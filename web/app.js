@@ -1,101 +1,102 @@
 /**
- * AgentDesk - Mobile Cockpit & Cross-Agent Remote Controller
+ * AgentDesk — Herdr Terminal Multiplexer Interface
  */
 (function() {
   'use strict';
 
-  // State & Config
+  // Config & Secret
   const urlParams = new URLSearchParams(window.location.search);
-  let secretKey = urlParams.get('secret') || localStorage.getItem('agentdesk_secret') || '';
+  let secret = urlParams.get('secret') || localStorage.getItem('agentdesk_secret') || '';
   if (urlParams.get('secret')) {
-    localStorage.setItem('agentdesk_secret', secretKey);
+    localStorage.setItem('agentdesk_secret', secret);
   }
 
-  let activePaneId = null;
+  // App State
+  let currentSnapshot = null;
+  let activeWorkspaceFilter = '';
+  let activeAgentFilter = '';
+  let activeTerminalPaneId = null;
   let blockedPaneId = null;
-  let activeFilterAgent = '';
   let selectedSession = null;
-  let searchDebounceTimer = null;
+  let searchTimer = null;
+  let eventSource = null;
   let audioCtx = null;
-  let sseSource = null;
 
   // DOM Elements
   const connDot = document.getElementById('conn-dot');
   const connLabel = document.getElementById('conn-label');
-  const statPanesVal = document.getElementById('stat-panes-val');
-  const statWorkingVal = document.getElementById('stat-working-val');
-  const statWorkspacesVal = document.getElementById('stat-workspaces-val');
+  const wsTabStrip = document.getElementById('ws-tab-strip');
+  const wsBadgeAll = document.getElementById('ws-badge-all');
   const approvalBanner = document.getElementById('approval-banner');
-  const bannerAgentName = document.getElementById('banner-agent-name');
-  const bannerText = document.getElementById('banner-text');
+  const bannerPaneId = document.getElementById('banner-pane-id');
+  const bannerPrompt = document.getElementById('banner-prompt');
   const bannerApproveBtn = document.getElementById('banner-approve-btn');
   const bannerRejectBtn = document.getElementById('banner-reject-btn');
-  const agentCardsContainer = document.getElementById('agent-cards-container');
-  const btnRefreshCockpit = document.getElementById('btn-refresh-cockpit');
+  const panesContainer = document.getElementById('panes-container');
+  const btnRefresh = document.getElementById('btn-refresh');
   const sessionSearchInput = document.getElementById('session-search-input');
-  const agentFilterStrip = document.getElementById('agent-filter-strip');
-  const sessionsListContainer = document.getElementById('sessions-list-container');
-  const boardTasksContainer = document.getElementById('board-tasks-container');
-  const btnAddFeedbackTop = document.getElementById('btn-add-feedback-top');
-  const terminalModalBackdrop = document.getElementById('terminal-modal-backdrop');
-  const terminalTitle = document.getElementById('terminal-title');
-  const terminalContent = document.getElementById('terminal-content');
-  const terminalInputField = document.getElementById('terminal-input-field');
-  const btnSendTerminal = document.getElementById('btn-send-terminal');
+  const agentFilterPills = document.getElementById('agent-filter-pills');
+  const sessionsList = document.getElementById('sessions-list');
+  const boardTasksList = document.getElementById('board-tasks-list');
+  const btnAddFeedbackBtn = document.getElementById('btn-add-feedback-btn');
+  const terminalModalOverlay = document.getElementById('terminal-modal-overlay');
+  const terminalPaneTitle = document.getElementById('terminal-pane-title');
+  const terminalStreamContent = document.getElementById('terminal-stream-content');
   const terminalCloseBtn = document.getElementById('terminal-close-btn');
-  const btnScrollBottom = document.getElementById('btn-scroll-bottom');
-  const sessionDetailBackdrop = document.getElementById('session-detail-backdrop');
-  const sessionDetailTitle = document.getElementById('session-detail-title');
-  const sessionDetailBody = document.getElementById('session-detail-body');
-  const sessionDetailCloseBtn = document.getElementById('session-detail-close-btn');
-  const btnTransferSession = document.getElementById('btn-transfer-session');
-  const toastMsg = document.getElementById('toast-msg');
+  const tuiInputBox = document.getElementById('tui-input-box');
+  const btnTuiSend = document.getElementById('btn-tui-send');
+  const btnTuiScroll = document.getElementById('btn-tui-scroll');
+  const sessionDetailOverlay = document.getElementById('session-detail-overlay');
+  const sessionModalTitle = document.getElementById('session-modal-title');
+  const sessionModalBody = document.getElementById('session-modal-body');
+  const sessionCloseBtn = document.getElementById('session-close-btn');
+  const btnTuiTransfer = document.getElementById('btn-tui-transfer');
+  const tuiToast = document.getElementById('tui-toast');
 
-  // Toast helper
-  function showToast(text, duration = 2200) {
-    if (!toastMsg) return;
-    toastMsg.textContent = text;
-    toastMsg.classList.add('show');
-    setTimeout(() => toastMsg.classList.remove('show'), duration);
-  }
-
-  // Audio & Haptic Chime
-  function playAlertChime() {
+  // Audio / Haptic alert
+  function playAlert() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.14);
-      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
-      osc.stop(audioCtx.currentTime + 0.36);
+      osc.stop(audioCtx.currentTime + 0.31);
     } catch (e) {}
     if ('vibrate' in navigator) {
-      try { navigator.vibrate([160, 100, 160]); } catch (e) {}
+      try { navigator.vibrate([150, 80, 150]); } catch (e) {}
     }
   }
 
-  // API Helper
-  function getApiUrl(endpoint, params = {}) {
-    const url = new URL(endpoint, window.location.origin);
-    if (secretKey) url.searchParams.set('secret', secretKey);
+  function showToast(text) {
+    if (!tuiToast) return;
+    tuiToast.textContent = text;
+    tuiToast.classList.add('show');
+    setTimeout(() => tuiToast.classList.remove('show'), 2000);
+  }
+
+  // API Client
+  function getUrl(path, params = {}) {
+    const u = new URL(path, window.location.origin);
+    if (secret) u.searchParams.set('secret', secret);
     for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
+      if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, v);
     }
-    return url.toString();
+    return u.toString();
   }
 
-  async function apiFetch(endpoint, options = {}) {
-    const url = getApiUrl(endpoint, options.params);
+  async function api(path, options = {}) {
+    const u = getUrl(path, options.params);
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    if (secretKey) headers['Authorization'] = `Bearer ${secretKey}`;
-    const res = await fetch(url, {
+    if (secret) headers['Authorization'] = `Bearer ${secret}`;
+    const res = await fetch(u, {
       method: options.method || 'GET',
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -107,11 +108,11 @@
     return res.json();
   }
 
-  // View Switching
-  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+  // Bottom Navigation Switching
+  document.querySelectorAll('.tui-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.tui-nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tui-view').forEach(v => v.classList.remove('active'));
       btn.classList.add('active');
       const targetId = btn.getAttribute('data-view');
       const targetView = document.getElementById(targetId);
@@ -122,266 +123,290 @@
     });
   });
 
-  // Render Cockpit Panes & Stats
+  // Render Workspace Filter Strip
+  function renderWorkspaces(workspaces, panes) {
+    if (!workspaces || !wsTabStrip) return;
+
+    wsBadgeAll.textContent = panes.length;
+
+    let html = `<button class="ws-tab ${activeWorkspaceFilter === '' ? 'active' : ''}" data-ws="">[ ALL <span class="badge">${panes.length}</span> ]</button>`;
+    
+    workspaces.forEach(w => {
+      const wsPanes = panes.filter(p => p.workspace_id === w.workspace_id);
+      const isAct = activeWorkspaceFilter === w.workspace_id;
+      const wsName = w.label || `#${w.number}`;
+      html += `
+        <button class="ws-tab ${isAct ? 'active' : ''}" data-ws="${w.workspace_id}">
+          [ ${w.number}: ${escapeHtml(wsName)} <span class="badge">${wsPanes.length}</span> ]
+        </button>
+      `;
+    });
+
+    wsTabStrip.innerHTML = html;
+
+    wsTabStrip.querySelectorAll('.ws-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        activeWorkspaceFilter = tab.getAttribute('data-ws') || '';
+        renderSnapshot(currentSnapshot);
+      });
+    });
+  }
+
+  // Render Herdr Panes
   function renderSnapshot(snap) {
     if (!snap) return;
+    currentSnapshot = snap;
     const panes = snap.panes || [];
     const workspaces = snap.workspaces || [];
 
-    // Update Stats
-    const workingCount = panes.filter(p => p.agent_status === 'working').length;
-    statPanesVal.textContent = panes.length;
-    statWorkingVal.textContent = workingCount;
-    statWorkspacesVal.textContent = workspaces.length;
+    renderWorkspaces(workspaces, panes);
 
-    // Check for blocked pane
+    // Filter panes by selected workspace
+    const filteredPanes = activeWorkspaceFilter
+      ? panes.filter(p => p.workspace_id === activeWorkspaceFilter)
+      : panes;
+
+    // Check for blocked agent
     const blocked = panes.find(p => p.agent_status === 'blocked');
     if (blocked) {
       blockedPaneId = blocked.pane_id;
-      const ag = (blocked.agent || blocked.display_agent || 'Agent').toUpperCase();
-      bannerAgentName.textContent = `[${ag}] • Pane ${blocked.pane_id}`;
-      bannerText.textContent = blocked.terminal_title_stripped || blocked.terminal_title || 'Waiting for tool approval';
+      const ag = (blocked.agent || blocked.display_agent || 'agent').toUpperCase();
+      bannerPaneId.textContent = `[${ag} • ${blocked.pane_id}]`;
+      bannerPrompt.textContent = blocked.terminal_title_stripped || blocked.terminal_title || 'Waiting for tool execution permission';
       approvalBanner.style.display = 'block';
     } else {
       blockedPaneId = null;
       approvalBanner.style.display = 'none';
     }
 
-    if (panes.length === 0) {
-      agentCardsContainer.innerHTML = `
-        <div style="color:var(--text-muted); text-align:center; padding:50px 10px; background:var(--bg-card); border-radius:var(--radius-lg); border:1px solid var(--border-subtle);">
-          No active Herdr panes detected.
+    if (filteredPanes.length === 0) {
+      panesContainer.innerHTML = `
+        <div style="color:var(--text-muted); text-align:center; padding:30px 10px; border:1px dashed var(--border); border-radius:4px;">
+          (no panes in selected workspace)
         </div>`;
       return;
     }
 
-    // Build Workspace Map
+    // Map workspaces for easy lookup
     const wsMap = {};
-    workspaces.forEach(w => {
-      wsMap[w.workspace_id] = w.label || `#${w.number}`;
-    });
+    workspaces.forEach(w => { wsMap[w.workspace_id] = w.label || `#${w.number}`; });
 
-    agentCardsContainer.innerHTML = panes.map(p => {
+    panesContainer.innerHTML = filteredPanes.map(p => {
       const pid = p.pane_id;
-      const agentRaw = (p.agent || p.display_agent || 'terminal').toLowerCase();
-      const status = p.agent_status || 'idle';
-      const wsLabel = wsMap[p.workspace_id] || p.workspace_id || '';
+      const ag = (p.agent || p.display_agent || 'terminal').toLowerCase();
+      const status = p.agent_status || 'unknown';
+      const wsName = wsMap[p.workspace_id] || p.workspace_id || '';
       const title = p.terminal_title_stripped || p.terminal_title || `Pane ${pid}`;
       const cwd = (p.foreground_cwd || p.cwd || '~').replace('/home/ashish', '~');
 
-      // Style variant
-      const isBlocked = status === 'blocked';
       const isWorking = status === 'working';
+      const isBlocked = status === 'blocked';
+
+      // Status marker symbol
+      const statusIcon = isWorking ? '●' : (isBlocked ? '▲' : (status === 'idle' ? '■' : '○'));
 
       return `
-        <div class="pane-card ${isBlocked ? 'is-blocked' : (isWorking ? 'is-working' : '')}" data-pane-id="${pid}">
-          <div class="card-header">
-            <span class="agent-chip ${agentRaw}">⚡ ${agentRaw}</span>
-            <span class="status-badge ${status}">${status}</span>
+        <div class="pane-box ${isWorking ? 'is-working' : ''} ${isBlocked ? 'is-blocked' : ''}" data-pane-id="${pid}">
+          <div class="pane-topbar">
+            <div>
+              <span class="pane-id-tag">${pid}</span>
+              ${wsName ? `<span class="pane-ws-tag"> // ${escapeHtml(wsName)}</span>` : ''}
+            </div>
+            <span class="pane-agent-pill ${status}">
+              ${statusIcon} ${ag}: ${status}
+            </span>
           </div>
-          <div class="card-body-title">${escapeHtml(title)}</div>
-          <div class="card-meta-row">
-            <span>🏷️ <b>${pid}</b></span>
-            ${wsLabel ? `<span>📁 <b>${escapeHtml(wsLabel)}</b></span>` : ''}
-            <span>📂 <b>${escapeHtml(cwd)}</b></span>
+          <div class="pane-body">
+            <div class="pane-title">${escapeHtml(title)}</div>
+            <div class="pane-meta">cwd: ${escapeHtml(cwd)}</div>
           </div>
-          <div class="card-actions-grid">
-            <button class="btn-card-action" onclick="window.openTerminal('${pid}', '${escapeHtml(agentRaw)} • ${pid}')">
-              🖥️ Peek
-            </button>
-            <button class="btn-card-action approve-btn" onclick="window.sendApprove('${pid}')">
-              ✅ Approve (y)
-            </button>
-            <button class="btn-card-action" style="color:#ef4444;" onclick="window.sendInterrupt('${pid}')">
-              ⛔ Interrupt
-            </button>
+          <div class="pane-actions-bar">
+            <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(ag)} // ${pid}')">&gt; PEEK</button>
+            <button class="btn-tui-action approve" onclick="window.tuiApprove('${pid}')">&gt; APPROVE (y)</button>
+            <button class="btn-tui-action abort" onclick="window.tuiInterrupt('${pid}')">&gt; ABORT (^C)</button>
           </div>
         </div>
       `;
     }).join('');
   }
 
-  // Quick Action Handlers
-  window.sendApprove = async function(paneId) {
+  // Quick Action Triggers
+  window.tuiApprove = async function(paneId) {
     const pid = paneId || blockedPaneId;
     if (!pid) return;
     try {
-      await apiFetch('/api/approve', { method: 'POST', body: { pane_id: pid } });
-      showToast(`✓ Approved pane ${pid}`);
+      await api('/api/approve', { method: 'POST', body: { pane_id: pid } });
+      showToast(`✓ APPROVE SENT TO ${pid}`);
       approvalBanner.style.display = 'none';
       blockedPaneId = null;
-      setTimeout(refreshCockpit, 500);
+      setTimeout(refreshPanes, 500);
     } catch (err) {
-      alert('Approval failed: ' + err.message);
+      alert('Error: ' + err.message);
     }
   };
 
-  window.sendInterrupt = async function(paneId) {
+  window.tuiInterrupt = async function(paneId) {
     const pid = paneId || blockedPaneId;
     if (!pid) return;
     try {
-      await apiFetch('/api/interact', {
+      await api('/api/interact', {
         method: 'POST',
         body: { pane_id: pid, text: '\x03', submit: false }
       });
-      showToast(`⛔ Sent Ctrl+C to ${pid}`);
-      setTimeout(refreshCockpit, 500);
+      showToast(`⛔ ^C SENT TO ${pid}`);
+      setTimeout(refreshPanes, 500);
     } catch (err) {
-      alert('Interrupt failed: ' + err.message);
+      alert('Error: ' + err.message);
     }
   };
 
-  bannerApproveBtn.addEventListener('click', () => window.sendApprove(blockedPaneId));
-  bannerRejectBtn.addEventListener('click', () => window.sendInterrupt(blockedPaneId));
+  bannerApproveBtn.addEventListener('click', () => window.tuiApprove(blockedPaneId));
+  bannerRejectBtn.addEventListener('click', () => window.tuiInterrupt(blockedPaneId));
 
-  // Terminal Modal
-  window.openTerminal = function(paneId, title = 'Terminal') {
-    activePaneId = paneId;
-    terminalTitle.textContent = title;
-    terminalContent.textContent = 'Loading latest output…';
-    terminalModalBackdrop.style.display = 'block';
+  // Terminal Drawer
+  window.tuiPeek = function(paneId, title = 'TERMINAL') {
+    activeTerminalPaneId = paneId;
+    terminalPaneTitle.textContent = title;
+    terminalStreamContent.textContent = '> attaching to pane stream...';
+    terminalModalOverlay.style.display = 'block';
 
-    fetchTerminalOutput(paneId);
+    fetchPaneTerminal(paneId);
   };
 
-  async function fetchTerminalOutput(paneId) {
+  async function fetchPaneTerminal(paneId) {
     try {
-      const res = await apiFetch(`/api/pane/${encodeURIComponent(paneId)}/read`, { params: { lines: 100 } });
-      terminalContent.textContent = res.output || '(No terminal output available)';
-      terminalContent.scrollTop = terminalContent.scrollHeight;
+      const res = await api(`/api/pane/${encodeURIComponent(paneId)}/read`, { params: { lines: 100 } });
+      terminalStreamContent.textContent = res.output || '(empty buffer)';
+      terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
     } catch (err) {
-      terminalContent.textContent = `Error reading terminal: ${err.message}`;
+      terminalStreamContent.textContent = `! Read error: ${err.message}`;
     }
   }
 
   terminalCloseBtn.addEventListener('click', () => {
-    terminalModalBackdrop.style.display = 'none';
-    activePaneId = null;
+    terminalModalOverlay.style.display = 'none';
+    activeTerminalPaneId = null;
   });
 
-  terminalModalBackdrop.addEventListener('click', (e) => {
-    if (e.target === terminalModalBackdrop) {
-      terminalModalBackdrop.style.display = 'none';
-      activePaneId = null;
+  terminalModalOverlay.addEventListener('click', (e) => {
+    if (e.target === terminalModalOverlay) {
+      terminalModalOverlay.style.display = 'none';
+      activeTerminalPaneId = null;
     }
   });
 
-  // Quick Macro Keys
-  document.querySelectorAll('.key-pill[data-key]').forEach(btn => {
+  btnTuiScroll.addEventListener('click', () => {
+    terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
+  });
+
+  // Macro Keys on keypad
+  document.querySelectorAll('.keycap[data-key]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!activePaneId) return;
-      const keyVal = btn.getAttribute('data-key');
+      if (!activeTerminalPaneId) return;
+      const k = btn.getAttribute('data-key');
       try {
-        await apiFetch('/api/interact', {
+        await api('/api/interact', {
           method: 'POST',
-          body: { pane_id: activePaneId, text: keyVal, submit: false }
+          body: { pane_id: activeTerminalPaneId, text: k, submit: false }
         });
-        showToast(`Sent key`);
-        setTimeout(() => fetchTerminalOutput(activePaneId), 300);
+        showToast('✓ KEY TRANSMITTED');
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
       } catch (err) {
-        alert('Key send failed: ' + err.message);
+        alert('Send error: ' + err.message);
       }
     });
   });
 
-  if (btnScrollBottom) {
-    btnScrollBottom.addEventListener('click', () => {
-      terminalContent.scrollTop = terminalContent.scrollHeight;
-    });
-  }
-
-  // Send Custom Terminal Input
-  async function sendTerminalInput() {
-    const text = terminalInputField.value;
-    if (!text || !activePaneId) return;
-    terminalInputField.value = '';
+  async function sendTuiCommand() {
+    const txt = tuiInputBox.value;
+    if (!txt || !activeTerminalPaneId) return;
+    tuiInputBox.value = '';
     try {
-      await apiFetch('/api/interact', {
+      await api('/api/interact', {
         method: 'POST',
-        body: { pane_id: activePaneId, text: text, submit: true }
+        body: { pane_id: activeTerminalPaneId, text: txt, submit: true }
       });
-      showToast('Sent input');
-      setTimeout(() => fetchTerminalOutput(activePaneId), 400);
+      showToast('✓ PROMPT TRANSMITTED');
+      setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 400);
     } catch (err) {
       alert('Send failed: ' + err.message);
     }
   }
 
-  btnSendTerminal.addEventListener('click', sendTerminalInput);
-  terminalInputField.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendTerminalInput();
+  btnTuiSend.addEventListener('click', sendTuiCommand);
+  tuiInputBox.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendTuiCommand();
   });
 
   // Sessions & AgentR Search
   async function loadSessions(query = '') {
-    sessionsListContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:24px;">Loading sessions…</div>';
+    sessionsList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ querying agentr engine... ]</div>';
     try {
       const endpoint = query ? '/api/search' : '/api/sessions';
-      const params = query ? { q: query, agent: activeFilterAgent } : { agent: activeFilterAgent, limit: 40 };
-      const res = await apiFetch(endpoint, { params });
+      const params = query ? { q: query, agent: activeAgentFilter } : { agent: activeAgentFilter, limit: 40 };
+      const res = await api(endpoint, { params });
       const items = res.sessions || res.results || [];
 
       if (items.length === 0) {
-        sessionsListContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:30px;">No sessions found.</div>';
+        sessionsList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">(no sessions match)</div>';
         return;
       }
 
-      sessionsListContainer.innerHTML = items.map(s => {
-        const ag = (s.agent || 'agy').toLowerCase();
+      sessionsList.innerHTML = items.map(s => {
+        const ag = (s.agent || 'agy').toUpperCase();
         return `
-          <div class="session-card" data-agent="${s.agent}" data-cid="${s.cid}">
-            <div class="session-card-header">
-              <span class="agent-chip ${ag}">⚡ ${ag}</span>
+          <div class="session-entry" data-agent="${s.agent}" data-cid="${s.cid}">
+            <div class="session-top">
+              <span style="color:var(--blue); font-weight:700;">[ ${ag} ]</span>
               <span>${s.dt_str || ''} • ${s.step_count || 0} turns</span>
             </div>
-            <div class="session-card-title">${escapeHtml(s.title || 'Untitled Session')}</div>
-            <div class="session-card-snippet">${escapeHtml(s.snippet || '')}</div>
+            <div class="session-title">${escapeHtml(s.title || 'Untitled Session')}</div>
+            <div class="session-snip">${escapeHtml(s.snippet || '')}</div>
           </div>
         `;
       }).join('');
 
-      sessionsListContainer.querySelectorAll('.session-card').forEach(card => {
+      sessionsList.querySelectorAll('.session-entry').forEach(card => {
         card.addEventListener('click', () => {
-          openSessionDetail(card.getAttribute('data-agent'), card.getAttribute('data-cid'));
+          openSessionLog(card.getAttribute('data-agent'), card.getAttribute('data-cid'));
         });
       });
     } catch (err) {
-      sessionsListContainer.innerHTML = `<div style="color:var(--color-blocked); padding:20px; text-align:center;">${err.message}</div>`;
+      sessionsList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
     }
   }
 
-  // Filter Pill clicks
-  agentFilterStrip.querySelectorAll('.filter-tag').forEach(tag => {
-    tag.addEventListener('click', () => {
-      agentFilterStrip.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
-      tag.classList.add('active');
-      activeFilterAgent = tag.getAttribute('data-filter') || '';
+  agentFilterPills.querySelectorAll('.pill-opt').forEach(pill => {
+    pill.addEventListener('click', () => {
+      agentFilterPills.querySelectorAll('.pill-opt').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeAgentFilter = pill.getAttribute('data-agent') || '';
       loadSessions(sessionSearchInput.value.trim());
     });
   });
 
   sessionSearchInput.addEventListener('input', (e) => {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
       loadSessions(e.target.value.trim());
-    }, 300);
+    }, 280);
   });
 
-  // Session Detail Modal
-  async function openSessionDetail(agent, cid) {
+  // Session Log Modal
+  async function openSessionLog(agent, cid) {
     selectedSession = { agent, cid };
-    sessionDetailTitle.textContent = `${agent.toUpperCase()} • ${cid.slice(0, 10)}…`;
-    sessionDetailBody.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">Loading transcript…</div>';
-    sessionDetailBackdrop.style.display = 'block';
+    sessionModalTitle.textContent = `LOG // ${agent.toUpperCase()} // ${cid.slice(0, 12)}…`;
+    sessionModalBody.innerHTML = '<div style="color:var(--text-muted); padding:16px;">[ parsing transcript... ]</div>';
+    sessionDetailOverlay.style.display = 'block';
 
     try {
-      const res = await apiFetch('/api/sessions/details', { params: { agent, cid } });
+      const res = await api('/api/sessions/details', { params: { agent, cid } });
       const d = res.details || {};
       let html = `
-        <div style="margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-subtle);">
-          <h3 style="color:#60a5fa; margin-bottom:4px; font-size:16px;">${escapeHtml(d.title)}</h3>
-          <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">
-            Directory: <b>${escapeHtml(d.workdir || '~')}</b> • ${d.turn_count || 0} user turns
+        <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+          <div style="color:var(--blue); font-size:14px; font-weight:700;">${escapeHtml(d.title)}</div>
+          <div style="color:var(--text-muted); font-size:11px; margin-top:3px;">
+            cwd: ${escapeHtml(d.workdir || '~')} | turns: ${d.turn_count || 0}
           </div>
         </div>
       `;
@@ -393,47 +418,46 @@
       for (let i = 0; i < count; i++) {
         if (prompts[i]) {
           html += `
-            <div style="background:rgba(59, 130, 246, 0.12); border-left:3px solid #3b82f6; border-radius:6px; padding:10px 12px; margin-bottom:8px;">
-              <b style="color:#60a5fa; font-size:11px; text-transform:uppercase;">User:</b>
-              <div style="margin-top:2px; font-size:13px;">${escapeHtml(prompts[i])}</div>
+            <div style="background:#111827; border-left:2px solid var(--cyan); padding:8px 10px; margin-bottom:8px;">
+              <span style="color:var(--cyan); font-weight:700; font-size:10px;">&gt; USER:</span>
+              <div style="margin-top:2px; font-size:12px;">${escapeHtml(prompts[i])}</div>
             </div>
           `;
         }
         if (msgs[i]) {
           html += `
-            <div style="background:rgba(255, 255, 255, 0.03); border:1px solid var(--border-subtle); border-radius:6px; padding:10px 12px; margin-bottom:12px; color:#cbd5e1;">
-              <b style="color:#c084fc; font-size:11px; text-transform:uppercase;">${agent}:</b>
-              <div style="margin-top:2px; font-size:12.5px; white-space:pre-wrap;">${escapeHtml(msgs[i]).slice(0, 900)}${msgs[i].length > 900 ? '…' : ''}</div>
+            <div style="background:#090d14; border:1px solid var(--border); padding:8px 10px; margin-bottom:10px; color:#cbd5e1;">
+              <span style="color:var(--purple); font-weight:700; font-size:10px;">${agent.toUpperCase()}:</span>
+              <div style="margin-top:2px; font-size:11.5px; white-space:pre-wrap;">${escapeHtml(msgs[i]).slice(0, 900)}${msgs[i].length > 900 ? '…' : ''}</div>
             </div>
           `;
         }
       }
 
-      sessionDetailBody.innerHTML = html;
+      sessionModalBody.innerHTML = html;
     } catch (err) {
-      sessionDetailBody.innerHTML = `<div style="color:var(--color-blocked); padding:20px;">Error: ${err.message}</div>`;
+      sessionModalBody.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
     }
   }
 
-  sessionDetailCloseBtn.addEventListener('click', () => {
-    sessionDetailBackdrop.style.display = 'none';
+  sessionCloseBtn.addEventListener('click', () => {
+    sessionDetailOverlay.style.display = 'none';
     selectedSession = null;
   });
 
-  sessionDetailBackdrop.addEventListener('click', (e) => {
-    if (e.target === sessionDetailBackdrop) {
-      sessionDetailBackdrop.style.display = 'none';
+  sessionDetailOverlay.addEventListener('click', (e) => {
+    if (e.target === sessionDetailOverlay) {
+      sessionDetailOverlay.style.display = 'none';
       selectedSession = null;
     }
   });
 
-  // Handoff Trigger
-  btnTransferSession.addEventListener('click', async () => {
+  btnTuiTransfer.addEventListener('click', async () => {
     if (!selectedSession) return;
-    const target = prompt('Transfer this session to which agent?\nOptions: agy, opencode, freebuff, grok, kimi, claude', 'freebuff');
+    const target = prompt('TRANSFER SESSION CONTEXT TO AGENT:\nOptions: agy, opencode, freebuff, grok, kimi, claude', 'freebuff');
     if (!target) return;
     try {
-      const res = await apiFetch('/api/handoff', {
+      const res = await api('/api/handoff', {
         method: 'POST',
         body: {
           agent: selectedSession.agent,
@@ -441,42 +465,40 @@
           target: target.trim().toLowerCase()
         }
       });
-      showToast(`✓ Dispatched to ${res.target}`);
-      sessionDetailBackdrop.style.display = 'none';
+      showToast(`✓ HANDOFF -> ${res.target}`);
+      sessionDetailOverlay.style.display = 'none';
     } catch (err) {
       alert('Transfer failed: ' + err.message);
     }
   });
 
-  // Project Board
+  // Project Blackboard
   async function loadBoard() {
-    boardTasksContainer.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:24px;">Loading project board…</div>';
+    boardTasksList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ loading blackboard... ]</div>';
     try {
-      const res = await apiFetch('/api/board');
+      const res = await api('/api/board');
       const board = res.board || {};
       const tasks = board.tasks || [];
       const feedback = board.feedback || [];
 
-      let html = '<div style="margin-bottom:18px;">';
+      let html = '<div style="margin-bottom:14px;">';
       if (tasks.length === 0) {
-        html += '<div style="color:var(--text-muted); text-align:center; padding:16px;">No tasks on board.</div>';
+        html += '<div style="color:var(--text-muted); text-align:center; padding:14px;">(no active tasks)</div>';
       } else {
         tasks.forEach(t => {
           html += `
-            <div class="board-task-item">
-              <div class="board-task-head">
-                <span class="board-task-title">${escapeHtml(t.title)}</span>
-                <select class="status-dropdown" onchange="window.updateBoardTask('${t.id}', this.value)">
-                  <option value="todo" ${t.status === 'todo' ? 'selected' : ''}>⚪ To Do</option>
-                  <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>🟡 In Progress</option>
-                  <option value="review" ${t.status === 'review' ? 'selected' : ''}>🔍 In Review</option>
-                  <option value="done" ${t.status === 'done' ? 'selected' : ''}>✅ Done</option>
+            <div class="task-entry">
+              <div class="task-entry-top">
+                <span style="font-weight:700; color:var(--text); font-size:12px;">${escapeHtml(t.title)}</span>
+                <select class="tui-select" onchange="window.tuiUpdateTask('${t.id}', this.value)">
+                  <option value="todo" ${t.status === 'todo' ? 'selected' : ''}>TODO</option>
+                  <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>IN PROGRESS</option>
+                  <option value="review" ${t.status === 'review' ? 'selected' : ''}>REVIEW</option>
+                  <option value="done" ${t.status === 'done' ? 'selected' : ''}>DONE</option>
                 </select>
               </div>
-              <div class="board-task-footer">
-                <span>Task <b>${t.id}</b></span>
-                <span>Assigned: <b>${t.agent}</b></span>
-                <span>Reviewer: <b>${t.review_by || '—'}</b></span>
+              <div style="font-size:10px; color:var(--text-muted);">
+                id: ${t.id} | agent: <b style="color:var(--cyan);">${t.agent}</b> | reviewer: <b>${t.review_by || '—'}</b>
               </div>
             </div>
           `;
@@ -484,88 +506,88 @@
       }
       html += '</div>';
 
-      // Feedback Loop section
+      // Feedback section
       html += `
-        <div class="section-title-row" style="margin-top:20px;">
-          <h2>Agent Feedback Loop</h2>
+        <div class="tui-section-header" style="margin-top:16px;">
+          <span>FEEDBACK &amp; FRICTION LOOP</span>
         </div>
       `;
 
       if (feedback.length === 0) {
-        html += '<div style="color:var(--text-muted); text-align:center; padding:12px;">No feedback logged.</div>';
+        html += '<div style="color:var(--text-muted); text-align:center; padding:10px;">(no feedback logged)</div>';
       } else {
         feedback.forEach(fb => {
           html += `
-            <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:10px 14px; margin-bottom:8px; font-size:12px;">
-              <span class="agent-chip ${fb.agent || 'terminal'}" style="font-size:10px; margin-right:6px;">${escapeHtml(fb.agent)}</span>
-              <span style="color:var(--text-muted); font-size:11px;">${escapeHtml(fb.timestamp || '')}</span>
-              <div style="margin-top:6px; color:#e2e8f0; line-height:1.4;">${escapeHtml(fb.text)}</div>
+            <div style="background:var(--bg-frame); border:1px solid var(--border); border-radius:4px; padding:8px 10px; margin-bottom:6px; font-size:11px;">
+              <span style="color:var(--purple); font-weight:700;">[${escapeHtml(fb.agent)}]</span>
+              <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(fb.timestamp || '')}</span>
+              <div style="margin-top:4px; color:#c9d1d9;">${escapeHtml(fb.text)}</div>
             </div>
           `;
         });
       }
 
-      boardTasksContainer.innerHTML = html;
+      boardTasksList.innerHTML = html;
     } catch (err) {
-      boardTasksContainer.innerHTML = `<div style="color:var(--color-blocked); padding:20px;">${err.message}</div>`;
+      boardTasksList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
     }
   }
 
-  window.updateBoardTask = async function(taskId, status) {
+  window.tuiUpdateTask = async function(taskId, status) {
     try {
-      await apiFetch('/api/board/task/update', { method: 'POST', body: { id: taskId, status } });
-      showToast(`Updated ${taskId} ➔ ${status}`);
+      await api('/api/board/task/update', { method: 'POST', body: { id: taskId, status } });
+      showToast(`✓ TASK ${taskId} -> ${status}`);
       loadBoard();
     } catch (err) {
-      alert('Update failed: ' + err.message);
+      alert('Update error: ' + err.message);
     }
   };
 
-  btnAddFeedbackTop.addEventListener('click', async () => {
-    const text = prompt('Log tool friction or improvement idea into AgentR loop:');
+  btnAddFeedbackBtn.addEventListener('click', async () => {
+    const text = prompt('LOG AGENT FRICTION OR IDEA:');
     if (!text) return;
     try {
-      await apiFetch('/api/board/feedback', {
+      await api('/api/board/feedback', {
         method: 'POST',
         body: { text: text.trim(), agent: 'mobile' }
       });
-      showToast('✓ Feedback recorded');
+      showToast('✓ FEEDBACK LOGGED');
       loadBoard();
     } catch (err) {
-      alert('Failed to log feedback: ' + err.message);
+      alert('Failed: ' + err.message);
     }
   });
 
-  // Cockpit Refresh
-  async function refreshCockpit() {
+  // Refresh
+  async function refreshPanes() {
     try {
       connDot.classList.remove('offline');
-      connLabel.textContent = 'Syncing…';
-      const res = await apiFetch('/api/status');
+      connLabel.textContent = 'SYNCING';
+      const res = await api('/api/status');
       if (res.snapshot) renderSnapshot(res.snapshot);
-      connLabel.textContent = 'Live';
+      connLabel.textContent = 'ONLINE';
     } catch (err) {
       connDot.classList.add('offline');
-      connLabel.textContent = 'Error';
+      connLabel.textContent = 'OFFLINE';
     }
   }
 
-  btnRefreshCockpit.addEventListener('click', refreshCockpit);
+  btnRefresh.addEventListener('click', refreshPanes);
 
-  // Connect SSE
-  function connectSSE() {
-    if (sseSource) {
-      try { sseSource.close(); } catch (e) {}
+  // SSE Stream
+  function initSSE() {
+    if (eventSource) {
+      try { eventSource.close(); } catch (e) {}
     }
-    const sseUrl = getApiUrl('/api/events');
-    sseSource = new EventSource(sseUrl);
+    const u = getUrl('/api/events');
+    eventSource = new EventSource(u);
 
-    sseSource.onopen = () => {
+    eventSource.onopen = () => {
       connDot.classList.remove('offline');
-      connLabel.textContent = 'Live';
+      connLabel.textContent = 'ONLINE';
     };
 
-    sseSource.onmessage = (event) => {
+    eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'init' || data.type === 'sync') {
@@ -575,19 +597,18 @@
           (data.changes || []).forEach(c => {
             if (c.to === 'blocked') hasBlocked = true;
           });
-          if (hasBlocked) playAlertChime();
-          refreshCockpit();
+          if (hasBlocked) playAlert();
+          refreshPanes();
         }
       } catch (err) {}
     };
 
-    sseSource.onerror = () => {
+    eventSource.onerror = () => {
       connDot.classList.add('offline');
-      connLabel.textContent = 'Reconnecting…';
+      connLabel.textContent = 'RETRYING';
     };
   }
 
-  // Escape HTML helper
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -598,13 +619,13 @@
       .replace(/'/g, '&#039;');
   }
 
-  // PWA Service Worker
+  // PWA
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Initial Load: immediately fetch status AND connect SSE!
-  refreshCockpit();
-  connectSSE();
+  // Startup
+  refreshPanes();
+  initSSE();
 
 })();

@@ -3,183 +3,150 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>AgentDesk</title>
+  <title>herdr // agentdesk</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <meta name="theme-color" content="#06080c" />
+  <meta name="theme-color" content="#07090e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- Top App Navigation -->
-  <header class="app-header">
-    <div class="brand-wrapper">
-      <div class="brand-logo">
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="#3b82f6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 17 10 11 4 5"></polyline>
-          <line x1="12" y1="19" x2="20" y2="19"></line>
-        </svg>
-      </div>
-      <h1 class="brand-title">AgentDesk</h1>
+  <!-- TUI Header -->
+  <header class="tui-header">
+    <div class="tui-brand">
+      <span class="tui-logo">&gt;_</span>
+      <div class="tui-title">HERDR <span>// agentdesk</span></div>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <a href="AgentDesk-Android.zip" download class="filter-tag" style="margin:0; text-decoration:none; display:flex; align-items:center; gap:4px; font-size:11px; padding:4px 9px; background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); color:#60a5fa;">
-        📦 Android Code (.zip)
-      </a>
-      <div class="header-status-pill" id="conn-status-pill">
-        <div class="status-dot" id="conn-dot"></div>
-        <span id="conn-label">Live</span>
-      </div>
+    <div class="tui-status-tag" id="conn-status-tag">
+      <div class="tui-dot" id="conn-dot"></div>
+      <span id="conn-label">ONLINE</span>
     </div>
   </header>
 
-  <!-- Overview Stats Strip -->
-  <div class="stats-strip">
-    <div class="stat-box">
-      <span class="stat-val" id="stat-panes-val">0</span>
-      <span class="stat-lbl">Panes</span>
-    </div>
-    <div class="stat-box">
-      <span class="stat-val" style="color: #10b981;" id="stat-working-val">0</span>
-      <span class="stat-lbl">Working</span>
-    </div>
-    <div class="stat-box">
-      <span class="stat-val" style="color: #60a5fa;" id="stat-workspaces-val">0</span>
-      <span class="stat-lbl">Workspaces</span>
-    </div>
+  <!-- Workspace Filter Strip (Herdr Style) -->
+  <div class="ws-strip" id="ws-tab-strip">
+    <button class="ws-tab active" data-ws="">[ ALL <span class="badge" id="ws-badge-all">9</span> ]</button>
+    <!-- Dynamic workspaces injected via JS -->
   </div>
 
-  <!-- Sticky Urgent Approval Banner -->
+  <!-- Attention / Blocked Banner -->
   <div id="approval-banner">
-    <div class="banner-head">
-      <span class="banner-badge">Action Required</span>
-      <span id="banner-agent-name" style="font-weight: 700; font-size: 13px;">Agent</span>
+    <div class="banner-header">
+      <span>▲ ATTENTION: AGENT WAITING FOR INPUT</span>
+      <span id="banner-pane-id">[w7:p1]</span>
     </div>
-    <div class="banner-msg" id="banner-text">Waiting for user tool approval</div>
-    <div class="banner-btns">
-      <button class="btn-approve-primary" id="banner-approve-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Approve &amp; Continue (y)
-      </button>
-      <button class="btn-interrupt-alt" id="banner-reject-btn">Interrupt</button>
+    <div class="banner-prompt" id="banner-prompt">Prompt text...</div>
+    <div class="banner-actions">
+      <button class="btn-tui-approve" id="banner-approve-btn">&gt; ONE-TAP APPROVE (y)</button>
+      <button class="btn-tui-abort" id="banner-reject-btn">&gt; ABORT (^C)</button>
     </div>
   </div>
 
-  <!-- Main Viewports -->
-  <main class="main-viewport">
-
-    <!-- View 1: Active Cockpit -->
-    <section id="cockpit-view" class="view-panel active">
-      <div class="section-title-row">
-        <h2>Active Workspaces &amp; Panes</h2>
-        <button id="btn-refresh-cockpit" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; font-weight:600;">↻ Refresh</button>
+  <main>
+    <!-- View 1: Active Panes (Cockpit) -->
+    <section id="panes-view" class="tui-view active">
+      <div class="tui-section-header">
+        <span>ACTIVE TERMINAL PANES</span>
+        <button id="btn-refresh" style="background:transparent; border:none; color:var(--cyan); cursor:pointer; font-family:var(--font-mono); font-size:11px;">[ REFRESH ]</button>
       </div>
-      <div id="agent-cards-container">
-        <!-- Rendered instantly via JS -->
+      <div id="panes-container">
+        <!-- Rendered by app.js -->
       </div>
     </section>
 
     <!-- View 2: Sessions & Search -->
-    <section id="sessions-view" class="view-panel">
-      <div class="section-title-row">
-        <h2>Cross-Agent Intelligence</h2>
+    <section id="sessions-view" class="tui-view">
+      <div class="tui-section-header">
+        <span>CROSS-AGENT SESSIONS</span>
       </div>
-      <div class="search-input-wrapper">
-        <span class="search-icon-adornment">🔍</span>
-        <input type="search" id="session-search-input" class="search-input-field" placeholder="Search prompts, code diffs, logs across all agents…" />
+      <input type="search" id="session-search-input" class="tui-search-input" placeholder="&gt; search transcripts across agy, opencode, freebuff…" />
+      <div class="tui-filter-pills" id="agent-filter-pills">
+        <button class="pill-opt active" data-agent="">ALL</button>
+        <button class="pill-opt" data-agent="agy">AGY</button>
+        <button class="pill-opt" data-agent="freebuff">FREEBUFF</button>
+        <button class="pill-opt" data-agent="opencode">OPENCODE</button>
+        <button class="pill-opt" data-agent="grok">GROK</button>
+        <button class="pill-opt" data-agent="kimi">KIMI</button>
+        <button class="pill-opt" data-agent="claude">CLAUDE</button>
       </div>
-      <div class="filter-tags-strip" id="agent-filter-strip">
-        <button class="filter-tag active" data-filter="">All Agents</button>
-        <button class="filter-tag" data-filter="agy">Antigravity (agy)</button>
-        <button class="filter-tag" data-filter="freebuff">Freebuff</button>
-        <button class="filter-tag" data-filter="opencode">OpenCode</button>
-        <button class="filter-tag" data-filter="grok">Grok Build</button>
-        <button class="filter-tag" data-filter="kimi">Kimi Code</button>
-        <button class="filter-tag" data-filter="claude">Claude Code</button>
-      </div>
-      <div id="sessions-list-container">
-        <!-- Rendered by JS -->
+      <div id="sessions-list">
+        <!-- Rendered by app.js -->
       </div>
     </section>
 
     <!-- View 3: Project Blackboard -->
-    <section id="board-view" class="view-panel">
-      <div class="section-title-row">
-        <h2>Autonomous Project Board</h2>
-        <button id="btn-add-feedback-top" class="filter-tag active" style="margin: 0;">+ Log Feedback</button>
+    <section id="board-view" class="tui-view">
+      <div class="tui-section-header">
+        <span>AUTONOMOUS TASK BOARD</span>
+        <button id="btn-add-feedback-btn" class="pill-opt" style="border-color:var(--cyan); color:var(--cyan);">[+ FEEDBACK]</button>
       </div>
-      <div id="board-tasks-container">
-        <!-- Rendered by JS -->
+      <div id="board-tasks-list">
+        <!-- Rendered by app.js -->
       </div>
     </section>
-
   </main>
 
-  <!-- Live Terminal Bottom Sheet Modal -->
-  <div class="modal-overlay" id="terminal-modal-backdrop">
-    <div class="modal-sheet" id="terminal-modal-sheet">
-      <div class="sheet-drag-pill"></div>
-      <div class="sheet-nav-bar">
-        <span class="sheet-title-text" id="terminal-title">Pane Terminal</span>
-        <button class="sheet-close-btn" id="terminal-close-btn">&times;</button>
+  <!-- Terminal Drawer Modal -->
+  <div class="terminal-modal-overlay" id="terminal-modal-overlay">
+    <div class="terminal-modal-frame" id="terminal-modal-frame">
+      <div class="tui-drawer-header">
+        <span class="tui-drawer-title" id="terminal-pane-title">TERMINAL // w3:p8</span>
+        <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
       </div>
-      <div class="terminal-scroll-area" id="terminal-content">Loading output…</div>
+      <div class="terminal-stream-box" id="terminal-stream-content">Loading stream…</div>
       
-      <!-- Quick Macro Keys Bar -->
-      <div class="quick-keys-bar">
-        <button class="key-pill" data-key="y&#10;">y + Enter</button>
-        <button class="key-pill" data-key="&#10;">Enter</button>
-        <button class="key-pill" data-key="n&#10;">n</button>
-        <button class="key-pill" data-key="&#x03;">Ctrl+C</button>
-        <button class="key-pill" data-key="&#x1b;">Esc</button>
-        <button class="key-pill" id="btn-scroll-bottom">⬇ Bottom</button>
+      <!-- Keypad row -->
+      <div class="tui-keypad">
+        <button class="keycap" data-key="y&#10;">y + ↵</button>
+        <button class="keycap" data-key="&#10;">↵ Enter</button>
+        <button class="keycap" data-key="n&#10;">n</button>
+        <button class="keycap" data-key="&#x03;">^C Abort</button>
+        <button class="keycap" data-key="&#x1b;">Esc</button>
+        <button class="keycap" id="btn-tui-scroll">⬇ End</button>
       </div>
 
-      <div class="sheet-input-bar">
-        <input type="text" class="terminal-input-field" id="terminal-input-field" placeholder="Send prompt or shell command…" />
-        <button class="btn-send-command" id="btn-send-terminal">Send</button>
+      <div class="tui-input-line">
+        <span class="tui-prompt-symbol">&gt;</span>
+        <input type="text" class="tui-input-text" id="tui-input-box" placeholder="send text or prompt..." />
+        <button class="btn-tui-send" id="btn-tui-send">SEND</button>
       </div>
     </div>
   </div>
 
   <!-- Session Details Modal -->
-  <div class="modal-overlay" id="session-detail-backdrop">
-    <div class="modal-sheet" id="session-detail-sheet">
-      <div class="sheet-drag-pill"></div>
-      <div class="sheet-nav-bar">
-        <span class="sheet-title-text" id="session-detail-title">Session Details</span>
-        <button class="sheet-close-btn" id="session-detail-close-btn">&times;</button>
+  <div class="terminal-modal-overlay" id="session-detail-overlay">
+    <div class="terminal-modal-frame" id="session-detail-frame">
+      <div class="tui-drawer-header">
+        <span class="tui-drawer-title" id="session-modal-title">SESSION LOG</span>
+        <button class="tui-btn-close" id="session-close-btn">[ CLOSE ]</button>
       </div>
-      <div class="terminal-scroll-area" id="session-detail-body" style="background:#090d14; font-family:var(--font-sans); font-size:13px; line-height:1.6;">
-        Loading…
+      <div class="terminal-stream-box" id="session-modal-body" style="background:#080a0f;">
+        Loading transcript…
       </div>
-      <div class="sheet-input-bar" style="justify-content: flex-end; background:#0d1117;">
-        <button class="btn-send-command" id="btn-transfer-session" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
-          Transfer to another agent ➔
+      <div class="tui-input-line" style="justify-content: flex-end;">
+        <button class="btn-tui-send" id="btn-tui-transfer" style="color:var(--cyan); border-color:var(--cyan);">
+          &gt; DISPATCH HANDOFF ↵
         </button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notification -->
-  <div class="toast-msg" id="toast-msg">Action completed</div>
+  <div class="tui-toast" id="tui-toast">✓ COMMAND DELIVERED</div>
 
-  <!-- Bottom Nav Tabs -->
-  <nav class="app-bottom-nav">
-    <button class="nav-tab-btn active" data-view="cockpit-view">
-      <span class="nav-tab-icon">⚡</span>
-      <span>Cockpit</span>
+  <!-- Bottom Navigation -->
+  <nav class="tui-nav">
+    <button class="tui-nav-btn active" data-view="panes-view">
+      <span>⚡ 1:PANES</span>
     </button>
-    <button class="nav-tab-btn" data-view="sessions-view">
-      <span class="nav-tab-icon">🔍</span>
-      <span>Sessions</span>
+    <button class="tui-nav-btn" data-view="sessions-view">
+      <span>🔍 2:SESSIONS</span>
     </button>
-    <button class="nav-tab-btn" data-view="board-view">
-      <span class="nav-tab-icon">📋</span>
-      <span>Board</span>
+    <button class="tui-nav-btn" data-view="board-view">
+      <span>📋 3:BOARD</span>
     </button>
   </nav>
 
