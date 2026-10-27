@@ -472,8 +472,9 @@
     }
   });
 
-  // Project Blackboard
+  // Project Blackboard (Optional)
   async function loadBoard() {
+    if (!boardTasksList) return;
     boardTasksList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ loading blackboard... ]</div>';
     try {
       const res = await api('/api/board');
@@ -529,7 +530,7 @@
 
       boardTasksList.innerHTML = html;
     } catch (err) {
-      boardTasksList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
+      if (boardTasksList) boardTasksList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
     }
   }
 
@@ -543,20 +544,22 @@
     }
   };
 
-  btnAddFeedbackBtn.addEventListener('click', async () => {
-    const text = prompt('LOG AGENT FRICTION OR IDEA:');
-    if (!text) return;
-    try {
-      await api('/api/board/feedback', {
-        method: 'POST',
-        body: { text: text.trim(), agent: 'mobile' }
-      });
-      showToast('✓ FEEDBACK LOGGED');
-      loadBoard();
-    } catch (err) {
-      alert('Failed: ' + err.message);
-    }
-  });
+  if (btnAddFeedbackBtn) {
+    btnAddFeedbackBtn.addEventListener('click', async () => {
+      const text = prompt('LOG AGENT FRICTION OR IDEA:');
+      if (!text) return;
+      try {
+        await api('/api/board/feedback', {
+          method: 'POST',
+          body: { text: text.trim(), agent: 'mobile' }
+        });
+        showToast('✓ FEEDBACK LOGGED');
+        loadBoard();
+      } catch (err) {
+        alert('Failed: ' + err.message);
+      }
+    });
+  }
 
   // Refresh
   async function refreshPanes() {

@@ -51,17 +51,13 @@ fun AgentDeskApp(client: AgentDeskClient) {
     var selectedPaneForPeek by remember { mutableStateOf<PaneInfo?>(null) }
     var terminalOutput by remember { mutableStateOf("") }
     var isConnected by remember { mutableStateOf(false) }
-    var currentNavTab by remember { mutableStateOf(0) } // 0: Panes, 1: Sessions, 2: Board
+    var currentNavTab by remember { mutableStateOf(0) } // 0: Panes, 1: Sessions
 
     // Sessions tab state
     var searchQuery by remember { mutableStateOf("") }
     var selectedAgentFilter by remember { mutableStateOf("ALL") }
     var sessionsList by remember { mutableStateOf<List<AgentSession>>(emptyList()) }
     var selectedSessionDetail by remember { mutableStateOf<AgentSession?>(null) }
-
-    // Board tab state
-    var boardTasks by remember { mutableStateOf<List<BoardTask>>(emptyList()) }
-    var feedbackItems by remember { mutableStateOf<List<FeedbackItem>>(emptyList()) }
 
     var statusMessage by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
@@ -94,18 +90,9 @@ fun AgentDeskApp(client: AgentDeskClient) {
         }
     }
 
-    fun refreshBoard() {
-        coroutineScope.launch {
-            val (tasks, fb) = client.getBoard()
-            boardTasks = tasks
-            feedbackItems = fb
-        }
-    }
-
     LaunchedEffect(Unit) {
         refreshPanes()
         refreshSessions()
-        refreshBoard()
         client.connectSSE()
         client.events.collect {
             refreshPanes()
@@ -115,8 +102,7 @@ fun AgentDeskApp(client: AgentDeskClient) {
     LaunchedEffect(currentNavTab) {
         when (currentNavTab) {
             0 -> refreshPanes()
-            1 -> refreshSessions()
-            2 -> refreshBoard()
+            else -> refreshSessions()
         }
     }
 
@@ -247,8 +233,7 @@ fun AgentDeskApp(client: AgentDeskClient) {
             ) {
                 listOf(
                     Pair("⚡ 1:PANES", 0),
-                    Pair("🔍 2:SESSIONS", 1),
-                    Pair("📋 3:BOARD", 2)
+                    Pair("🔍 2:SESSIONS", 1)
                 ).forEach { (label, idx) ->
                     val isSelected = currentNavTab == idx
                     Box(
@@ -304,7 +289,7 @@ fun AgentDeskApp(client: AgentDeskClient) {
                     onRefresh = { refreshPanes() }
                 )
 
-                1 -> SessionsView(
+                else -> SessionsView(
                     sessions = sessionsList,
                     searchQuery = searchQuery,
                     onSearchChange = {
@@ -317,18 +302,6 @@ fun AgentDeskApp(client: AgentDeskClient) {
                         refreshSessions()
                     },
                     onSelectSession = { selectedSessionDetail = it }
-                )
-
-                2 -> BoardView(
-                    tasks = boardTasks,
-                    feedback = feedbackItems,
-                    onStatusChange = { taskId, newStatus ->
-                        coroutineScope.launch {
-                            client.updateTaskStatus(taskId, newStatus)
-                            showToast("Task $taskId status updated to $newStatus")
-                            refreshBoard()
-                        }
-                    }
                 )
             }
 
@@ -1046,131 +1019,4 @@ fun SessionDetailDialog(
             }
         }
     )
-}
-
-@Composable
-fun BoardView(
-    tasks: List<BoardTask>,
-    feedback: List<FeedbackItem>,
-    onStatusChange: (String, String) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Text(
-                text = "AUTONOMOUS TASK BOARD",
-                color = HerdrTextMuted,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        items(tasks) { task ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(HerdrFrame, shape = RoundedCornerShape(4.dp))
-                    .border(1.dp, HerdrBorder, shape = RoundedCornerShape(4.dp))
-                    .padding(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = task.title,
-                        color = Color.White,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = Color(0xFF131924),
-                        shape = RoundedCornerShape(3.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, HerdrCyan),
-                        modifier = Modifier.clickable {
-                            val nextStatus = when (task.status.lowercase()) {
-                                "todo" -> "in_progress"
-                                "in_progress" -> "review"
-                                "review" -> "done"
-                                else -> "todo"
-                            }
-                            onStatusChange(task.id, nextStatus)
-                        }
-                    ) {
-                        Text(
-                            text = "[ ${task.status.uppercase()} ]",
-                            color = HerdrCyan,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "id: ${task.id} | agent: ${task.agent} | reviewer: ${task.reviewBy}",
-                    color = HerdrTextMuted,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp
-                )
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "FEEDBACK & FRICTION LOOP",
-                color = HerdrTextMuted,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        items(feedback) { fb ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(HerdrFrame, shape = RoundedCornerShape(4.dp))
-                    .border(1.dp, HerdrBorder, shape = RoundedCornerShape(4.dp))
-                    .padding(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "[ ${fb.agent.uppercase()} ]",
-                        color = HerdrAmber,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = fb.timestamp,
-                        color = HerdrTextMuted,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = fb.text,
-                    color = HerdrText,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp
-                )
-            }
-        }
-    }
 }
