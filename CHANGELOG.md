@@ -6,7 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.2.0] — 2026-10-29
+
+### 🚀 Zero-Config Onboarding & Management CLI
+- **Added**:
+  - `bin/agentdesk`: Interactive CLI management tool (`agentdesk qr`, `agentdesk status`, `agentdesk restart`, `agentdesk logs`, `agentdesk test`).
+  - Terminal ANSI UTF-8 QR Code generation using `qrencode` for camera scanning.
+  - Dynamic Tailscale IP discovery via `tailscale ip -4` to eliminate hardcoded host configurations.
+  - [`docs/GUIDE_PHONE_SETUP.md`](docs/GUIDE_PHONE_SETUP.md): Beginner-friendly 60-second connection guide.
+  - [`docs/ROADMAP.md`](docs/ROADMAP.md): Detailed 5-phase product and engineering roadmap.
+- **Enhanced**:
+  - `install.sh`: Automatically links `~/.local/bin/agentdesk` and displays QR code on setup.
+  - `README.md`: Overhauled with quickstart, CLI reference, and architecture diagram.
 
 ---
 

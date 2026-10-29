@@ -2,33 +2,77 @@
 
 **Mobile Control Cockpit for Local AI Coding Agents**
 
-Control, monitor, and coordinate your local AI coding agents (Antigravity CLI, Freebuff, OpenCode, Claude Code) from your Android phone over a private, end-to-end encrypted Tailscale mesh.
+Control, monitor, and approve local AI coding agents (`agy` / Antigravity CLI, `opencode`, `freebuff`, `grok`) from your phone over a private, end-to-end encrypted Tailscale network.
 
-## Features
+Featuring an authentic **Herdr terminal / TUI aesthetic** with live streaming terminal peek, tactile macro keys, and cross-agent session search.
 
-- 🟢 **Live Agent Cockpit**: Watch active agents and panes running in Herdr in real-time.
-- 🔔 **Instant Approval Alerts**: Get notified immediately when an agent is waiting for tool approval or user guidance.
-- 🔍 **Universal History Search**: Search past sessions, transcripts, and code diffs across all coding agents via AgentR.
-- 🔄 **One-Tap Handoff**: Seamlessly transfer tasks between agents on the fly.
-- 📱 **Dual Delivery**: Install instantly as a Progressive Web App (PWA) on your phone today, or build a native Android APK with Jetpack Compose.
+---
 
-## Architecture
+## ⚡ 60-Second Quick Start
 
-```
-[ Android Phone (Pixel) ] ──(Tailscale 100.x.x.x)──> [ AgentDesk Daemon (:9876) ]
-                                                              │
-                                       ┌──────────────────────┴──────────────────────┐
-                                       ▼                                             ▼
-                             Herdr UNIX Socket                             AgentR Python Engine
-                         (Live panes & streaming)                       (Session history & handoffs)
-```
+1. Install and start the background service on your workstation:
+   ```bash
+   cd ~/Work/agentdesk
+   ./install.sh
+   ```
+2. Scan the **ANSI QR Code** that appears in your terminal with your phone camera.
+3. In Chrome on your phone, tap **`⋮` -> "Install app"** to add it to your home screen!
 
-## Quick Start
+👉 Full step-by-step walkthrough: **[Phone Setup Guide](docs/GUIDE_PHONE_SETUP.md)**
+
+---
+
+## 🛠️ CLI Management
+
+Once installed, manage AgentDesk anytime from your terminal:
 
 ```bash
-# Run server
-python3 -m agentdesk.server
-
-# Run tests
-python3 -m unittest discover tests
+agentdesk            # Display the terminal QR code & connection URL
+agentdesk status     # Check background service status and active Herdr panes
+agentdesk restart    # Restart the background daemon
+agentdesk logs       # View live daemon logs
+agentdesk test       # Run unit tests + automated browser E2E tests
 ```
+
+---
+
+## 📱 Features
+
+- **Authentic Herdr TUI**: Deep phosphor terminal theme (`#07090e`), workspace tab strip, monospace typography.
+- **One-Tap Tool Approvals**: High-visibility banner when an agent needs confirmation, with one-tap `[ > APPROVE (y) ]` and `[ > ABORT (^C) ]`.
+- **Live Terminal Peek & Macro Keypad**: Monospace buffer viewer with tactile buttons: `[ y + ↵ ]`, `[ ↵ Enter ]`, `[ n ]`, `[ ^C Abort ]`, `[ Esc ]`, and prompt runner.
+- **Cross-Agent Session Search**: Real-time fuzzy transcript search across `agy`, `opencode`, `freebuff`, and `grok` powered by AgentR.
+- **Automated Browser E2E Pipeline**: Every release is verified using `agent-browser` automation against a real mobile viewport.
+
+---
+
+## 🏗️ Architecture
+
+```text
+[ Android Phone (Pixel) ] ──(Tailscale Mesh 100.x.x.x:9876)──> [ AgentDesk Daemon ]
+                                                                       │
+                                              ┌────────────────────────┴────────────────────────┐
+                                              ▼                                                 ▼
+                                    Herdr UNIX Domain Socket                          AgentR Python Engine
+                                   (~/.config/herdr/herdr.sock)                         (Session Search)
+```
+
+---
+
+## 🧪 Testing Pipeline
+
+AgentDesk includes backend unit tests and automated mobile browser E2E tests:
+
+```bash
+./run_tests.sh
+# or: python3 -m unittest discover tests -v
+```
+
+---
+
+## 📚 Documentation & Roadmap
+
+- **[60-Second Phone Setup Guide](docs/GUIDE_PHONE_SETUP.md)**: Zero-friction onboarding for phone setup.
+- **[Product & Engineering Roadmap](docs/ROADMAP.md)**: Overview of completed, in-progress, and future milestones.
+- **[Changelog & Incident RCA Log](CHANGELOG.md)**: Professional software developer log of all issues, root causes, and resolutions.
+- **[Developer Contract](AGENTS.md)**: Rules and guidelines for agents and contributors working in this repository.

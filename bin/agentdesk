@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# AgentDesk CLI: Mobile Cockpit Manager
+set -euo pipefail
+
+CONFIG_FILE="$HOME/.config/agentdesk/config.json"
+DEFAULT_SECRET="63df263a-e1e4-4854-998c-7b1e8ce33dd4"
+DEFAULT_PORT=9876
+
+get_config_value() {
+    local key="$1"
+    local default_val="$2"
+    if [ -f "$CONFIG_FILE" ]; then
+        python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('$key', '$default_val'))" 2>/dev/null || echo "$default_val"
+    else
+        echo "$default_val"
+    fi
+}
+
+get_tailscale_ip() {
+    local ip
+    ip=$(tailscale ip -4 2>/dev/null || true)
+    if [ -z "$ip" ]; then
+        ip=$(ip -4 addr show dev tailscale0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || true)
+    fi
+    if [ -z "$ip" ]; then
+        ip="127.0.0.1"
+    fi
+    echo "$ip"
+}
+
+show_qr() {
+    local port
+    local secret
+    local ts_ip
+    local url
+
+    port=$(get_config_value "port" "$DEFAULT_PORT")
+    secret=$(get_config_value "secret" "$DEFAULT_SECRET")
+    ts_ip=$(get_tailscale_ip)
+    url="http://${ts_ip}:${port}/?secret=${secret}"
+
+    echo ""
+    echo "============================================================"
+    echo "  📱 AGENTDESK — SCAN TO CONNECT FROM YOUR PHONE"
+    echo "============================================================"
+    echo ""
+    if command -v qrencode >/dev/null 2>&1; then
+        qrencode -t ANSIUTF8 "$url"
+    else
+        echo "  [Tip: Install 'qrencode' to see a terminal QR code]"
+    fi
+    echo ""
+    echo "  Tailscale URL : $url"
+    echo "  Localhost URL : http://127.0.0.1:${port}/?secret=${secret}"
+    echo ""
+    echo "  👉 Point your Pixel camera at the QR code above."
+    echo "  👉 In Chrome, tap ⋮ -> 'Install app' to add to home screen."
+    echo "============================================================"
+    echo ""
+}
+
+show_status() {
+    echo "============================================================"
+    echo "  ⚡ AGENTDESK SYSTEM STATUS"
+    echo "============================================================"
+    local svc_active="inactive"
+    if systemctl --user is-active --quiet agentdesk.service 2>/dev/null; then
+        svc_active="active (running)"
+    fi
+    echo "  Service Status : $svc_active"
+
+    local port
+    local secret
+    port=$(get_config_value "port" "$DEFAULT_PORT")
+    secret=$(get_config_value "secret" "$DEFAULT_SECRET")
+
+    # Probe API
+    if [ "$svc_active" = "active (running)" ]; then
+        python3 -c "
+import urllib.request, json
+try:
+    url = 'http://127.0.0.1:$port/api/status?secret=$secret'
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=2) as r:
+        snap = json.loads(r.read().decode()).get('snapshot', {})
+        panes = snap.get('panes', [])
+        workspaces = snap.get('workspaces', [])
+        print(f'  Workspaces     : {len(workspaces)}')
+        print(f'  Active Panes   : {len(panes)}')
+        for p in panes[:5]:
+            ag = p.get('agent', p.get('display_agent', 'terminal'))
+            st = p.get('agent_status', 'idle')
+            pid = p.get('pane_id', '?')
+            ws = p.get('workspace_name', '~')
+            print(f'    • [{pid}] {ws} -> {ag}: {st}')
+        if len(panes) > 5:
+            print(f'    ... and {len(panes)-5} more')
+except Exception as e:
+    print(f'  API Probe Error: {e}')
+" 2>/dev/null || true
+    fi
+    echo "============================================================"
+}
+
+cmd="${1:-}"
+
+case "$cmd" in
+    qr|url)
+        show_qr
+        ;;
+    status)
+        show_status
+        ;;
+    restart)
+        echo "Restarting agentdesk.service..."
+        systemctl --user restart agentdesk.service
+        echo "✓ Restarted."
+        show_status
+        ;;
+    stop)
+        echo "Stopping agentdesk.service..."
+        systemctl --user stop agentdesk.service
+        echo "✓ Stopped."
+        ;;
+    start)
+        echo "Starting agentdesk.service..."
+        systemctl --user start agentdesk.service
+        echo "✓ Started."
+        show_status
+        ;;
+    logs)
+        journalctl --user -u agentdesk.service -n 50 -f
+        ;;
+    test)
+        DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+        exec "$DIR/run_tests.sh"
+        ;;
+    help|--help|-h)
+        echo "Usage: agentdesk [command]"
+        echo ""
+        echo "Commands:"
+        echo "  qr         Display terminal QR code and phone URL (default)"
+        echo "  status     Check daemon and active panes status"
+        echo "  restart    Restart the agentdesk systemd service"
+        echo "  start      Start the service"
+        echo "  stop       Stop the service"
+        echo "  logs       Follow live service logs"
+        echo "  test       Run backend unit tests and browser E2E tests"
+        ;;
+    *)
+        show_qr
+        show_status
+        ;;
+esac
