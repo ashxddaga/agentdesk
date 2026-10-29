@@ -50,3 +50,12 @@ http://100.77.2.5:9876/?secret=<secret>
 - Never commit secrets or private tokens (`config.json`).
 - All Herdr socket mutations must respect Herdr client protocol.
 - Keep the server dependencies zero-bloat (Python 3 stdlib only).
+
+## 5. Developer & Documentation Contract
+
+Every issue, user feedback item, root cause analysis (RCA), and bug fix MUST be documented in `CHANGELOG.md`:
+- **Issue & Symptom**: What behavior was observed or reported.
+- **Root Cause Analysis (RCA)**: Technical reason for the failure.
+- **Fix & Implementation**: Exact code, configuration, or architectural fix.
+- **Verification**: Tests and commands used to verify resolution (must pass `./run_tests.sh`).
+- **Git Commit**: Every multi-file change must be cleanly committed and pushed to git.
