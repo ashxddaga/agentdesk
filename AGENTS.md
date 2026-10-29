@@ -20,10 +20,12 @@ Run daemon locally:
 python3 -m agentdesk.server
 ```
 
-Run test suite:
+Run test suite (Backend Unit Tests + Browser E2E Tests):
 ```bash
-python3 -m unittest discover tests
+./run_tests.sh
+# or: python3 -m unittest discover tests -v
 ```
+The test suite includes automated mobile browser tests (`tests/test_e2e_browser.py` via `agent-browser`) that open the mobile cockpit, type prompts into the message box, and verify that commands execute and generate output in the live terminal.
 
 Install as systemd user service:
 ```bash
