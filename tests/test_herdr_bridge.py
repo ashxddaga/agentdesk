@@ -26,14 +26,27 @@ class TestHerdrBridge(unittest.TestCase):
     @patch("agentdesk.herdr_bridge.subprocess.run")
     def test_send_input(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-        ok = self.bridge.send_input("p-1", "echo hi\n")
+        ok = self.bridge.send_input("p-1", "echo hi\n", submit=True)
         self.assertTrue(ok)
+        # Should have called send-text and send-keys enter
+        calls = [c[0][0] for c in mock_run.call_args_list]
+        self.assertTrue(any("send-text" in cmd for cmd in calls))
+        self.assertTrue(any("send-keys" in cmd for cmd in calls))
 
     @patch("agentdesk.herdr_bridge.subprocess.run")
     def test_send_keys(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         ok = self.bridge.send_keys("p-1", ["enter"])
         self.assertTrue(ok)
+
+    def test_send_input_socket_direct(self):
+        with patch.object(self.bridge, "is_available", return_value=True):
+            with patch.object(self.bridge, "_call", return_value={"type": "ok"}) as mock_call:
+                ok = self.bridge.send_input("p-1", "hello world", submit=True)
+                self.assertTrue(ok)
+                self.assertEqual(mock_call.call_count, 2)
+                mock_call.assert_any_call("pane.send_text", {"pane_id": "p-1", "text": "hello world"})
+                mock_call.assert_any_call("pane.send_keys", {"pane_id": "p-1", "keys": ["enter"]})
 
 
 if __name__ == "__main__":

@@ -249,9 +249,9 @@
     const pid = paneId || blockedPaneId;
     if (!pid) return;
     try {
-      await api('/api/interact', {
+      await api('/api/keys', {
         method: 'POST',
-        body: { pane_id: pid, text: '\x03', submit: false }
+        body: { pane_id: pid, key: 'ctrl+c' }
       });
       showToast(`⛔ ^C SENT TO ${pid}`);
       setTimeout(refreshPanes, 500);
@@ -300,17 +300,35 @@
   });
 
   // Macro Keys on keypad
-  document.querySelectorAll('.keycap[data-key]').forEach(btn => {
+  document.querySelectorAll('.keycap').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!activeTerminalPaneId) return;
-      const k = btn.getAttribute('data-key');
+      const action = btn.getAttribute('data-action');
+      const key = btn.getAttribute('data-key');
+      if (!action && !key) return;
+
       try {
-        await api('/api/interact', {
-          method: 'POST',
-          body: { pane_id: activeTerminalPaneId, text: k, submit: false }
-        });
-        showToast('✓ KEY TRANSMITTED');
-        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
+        if (action === 'y_enter') {
+          await api('/api/interact', {
+            method: 'POST',
+            body: { pane_id: activeTerminalPaneId, text: 'y', submit: true }
+          });
+          showToast('✓ APPROVED (y+↵)');
+        } else if (action === 'n_enter') {
+          await api('/api/interact', {
+            method: 'POST',
+            body: { pane_id: activeTerminalPaneId, text: 'n', submit: true }
+          });
+          showToast('✓ REJECTED (n+↵)');
+        } else if (key) {
+          await api('/api/keys', {
+            method: 'POST',
+            body: { pane_id: activeTerminalPaneId, key: key }
+          });
+          showToast(`✓ KEY [${key.toUpperCase()}] TRANSMITTED`);
+        }
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 300);
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 900);
       } catch (err) {
         alert('Send error: ' + err.message);
       }
@@ -318,7 +336,7 @@
   });
 
   async function sendTuiCommand() {
-    const txt = tuiInputBox.value;
+    const txt = tuiInputBox.value.trim();
     if (!txt || !activeTerminalPaneId) return;
     tuiInputBox.value = '';
     try {
@@ -327,7 +345,8 @@
         body: { pane_id: activeTerminalPaneId, text: txt, submit: true }
       });
       showToast('✓ PROMPT TRANSMITTED');
-      setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 400);
+      setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 300);
+      setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 900);
     } catch (err) {
       alert('Send failed: ' + err.message);
     }

@@ -223,17 +223,54 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                 self.send_error_json("Missing 'pane_id'")
                 return
             ok = HERDR.send_input(pane_id, text, submit=submit)
-            self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id})
+            self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "submitted": submit})
             return
 
-        # API: Quick-approve button (sends 'y\n' or custom approval)
+        # API: Send terminal keypresses (e.g. 'ctrl+c', 'enter', 'esc')
+        if path == "/api/keys":
+            pane_id = body.get("pane_id")
+            if not pane_id:
+                self.send_error_json("Missing 'pane_id'")
+                return
+            pane_id = unquote(pane_id)
+            raw_key = body.get("key", "")
+            raw_keys = body.get("keys", [])
+            if raw_key and not raw_keys:
+                raw_keys = [raw_key]
+
+            # Normalize key names for Herdr
+            normalized = []
+            for k in raw_keys:
+                k_lower = str(k).lower().strip()
+                if k_lower in ("c", "^c", "ctrl+c", "ctrl-c", "\x03"):
+                    normalized.append("ctrl+c")
+                elif k_lower in ("enter", "return", "\n", "\r", "\r\n"):
+                    normalized.append("enter")
+                elif k_lower in ("esc", "escape", "\x1b"):
+                    normalized.append("esc")
+                elif k_lower in ("y", "yes"):
+                    HERDR.send_input(pane_id, "y", submit=True)
+                    self.send_json({"status": "ok", "pane_id": pane_id, "keys": ["y", "enter"]})
+                    return
+                elif k_lower in ("n", "no"):
+                    HERDR.send_input(pane_id, "n", submit=True)
+                    self.send_json({"status": "ok", "pane_id": pane_id, "keys": ["n", "enter"]})
+                    return
+                elif k_lower:
+                    normalized.append(k_lower)
+
+            ok = HERDR.send_keys(pane_id, normalized)
+            self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "keys": normalized})
+            return
+
+        # API: Quick-approve button (sends 'y' + enter)
         if path == "/api/approve":
             pane_id = body.get("pane_id")
             if not pane_id:
                 self.send_error_json("Missing 'pane_id'")
                 return
             pane_id = unquote(pane_id)
-            ok = HERDR.send_input(pane_id, "y\n", submit=True)
+            ok = HERDR.send_input(pane_id, "y", submit=True)
             self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "approved": True})
             return
 

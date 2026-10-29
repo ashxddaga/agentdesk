@@ -84,30 +84,59 @@ class HerdrBridge:
             return f"Failed to read pane: {e}"
 
     def send_input(self, pane_id: str, text: str, submit: bool = True) -> bool:
-        """Send text or approval command to a pane."""
+        """Send text or approval command to a pane.
+
+        If submit is True, sends text followed by Enter key press to submit the prompt.
+        """
+        clean_text = text.rstrip("\r\n")
         try:
-            if submit and not text.endswith("\n"):
-                # Use run or send-text followed by enter
-                res = subprocess.run(
-                    ["herdr", "pane", "send-text", pane_id, text + "\n"],
+            # 1. Try Herdr socket RPC if socket is active
+            if self.is_available():
+                try:
+                    if clean_text:
+                        self._call("pane.send_text", {"pane_id": pane_id, "text": clean_text})
+                    if submit:
+                        self._call("pane.send_keys", {"pane_id": pane_id, "keys": ["enter"]})
+                    return True
+                except Exception:
+                    pass
+
+            # 2. Fallback to CLI
+            if clean_text:
+                res1 = subprocess.run(
+                    ["herdr", "pane", "send-text", pane_id, clean_text],
                     capture_output=True,
                     text=True,
                     timeout=3,
                 )
-            else:
-                res = subprocess.run(
-                    ["herdr", "pane", "send-text", pane_id, text],
+                if res1.returncode != 0:
+                    return False
+            if submit:
+                res2 = subprocess.run(
+                    ["herdr", "pane", "send-keys", pane_id, "enter"],
                     capture_output=True,
                     text=True,
                     timeout=3,
                 )
-            return res.returncode == 0
+                return res2.returncode == 0
+            return True
         except Exception:
             return False
 
     def send_keys(self, pane_id: str, keys: List[str]) -> bool:
         """Send specific control keys (e.g. ['enter'], ['ctrl+c'], ['esc'])."""
+        if not keys:
+            return True
         try:
+            # 1. Try Herdr socket RPC if socket is active
+            if self.is_available():
+                try:
+                    self._call("pane.send_keys", {"pane_id": pane_id, "keys": keys})
+                    return True
+                except Exception:
+                    pass
+
+            # 2. Fallback to CLI
             cmd = ["herdr", "pane", "send-keys", pane_id] + keys
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
             return res.returncode == 0
