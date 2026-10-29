@@ -1,5 +1,6 @@
 /**
  * AgentDesk — Herdr Terminal Multiplexer Interface
+ * v0.3.0 — Phases 3, 4, 5 Complete
  */
 (function() {
   'use strict';
@@ -21,6 +22,9 @@
   let searchTimer = null;
   let eventSource = null;
   let audioCtx = null;
+  let alertsEnabled = localStorage.getItem('agentdesk_alerts') !== 'false';
+  let speechRecognition = null;
+  let isRecording = false;
 
   // DOM Elements
   const connDot = document.getElementById('conn-dot');
@@ -34,18 +38,45 @@
   const bannerRejectBtn = document.getElementById('banner-reject-btn');
   const panesContainer = document.getElementById('panes-container');
   const btnRefresh = document.getElementById('btn-refresh');
+
+  // Header Tools
+  const btnToggleAlerts = document.getElementById('btn-toggle-alerts');
+  const btnOpenLauncher = document.getElementById('btn-open-launcher');
+  const btnToggleBoard = document.getElementById('btn-toggle-board');
+
+  // Sessions View
   const sessionSearchInput = document.getElementById('session-search-input');
   const agentFilterPills = document.getElementById('agent-filter-pills');
   const sessionsList = document.getElementById('sessions-list');
-  const boardTasksList = document.getElementById('board-tasks-list');
-  const btnAddFeedbackBtn = document.getElementById('btn-add-feedback-btn');
+
+  // Terminal Drawer Elements
   const terminalModalOverlay = document.getElementById('terminal-modal-overlay');
   const terminalPaneTitle = document.getElementById('terminal-pane-title');
   const terminalStreamContent = document.getElementById('terminal-stream-content');
   const terminalCloseBtn = document.getElementById('terminal-close-btn');
+  const btnDrawerKill = document.getElementById('btn-drawer-kill');
+  const tuiPromptChips = document.querySelectorAll('#tui-prompt-chips .prompt-chip');
   const tuiInputBox = document.getElementById('tui-input-box');
+  const btnVoiceDictate = document.getElementById('btn-voice-dictate');
   const btnTuiSend = document.getElementById('btn-tui-send');
   const btnTuiScroll = document.getElementById('btn-tui-scroll');
+
+  // Launcher Modal Elements
+  const launcherModalOverlay = document.getElementById('launcher-modal-overlay');
+  const launcherCloseBtn = document.getElementById('launcher-close-btn');
+  const launcherWorkdirSelect = document.getElementById('launcher-workdir-select');
+  const launcherAgentSelect = document.getElementById('launcher-agent-select');
+  const launcherLabelInput = document.getElementById('launcher-label-input');
+  const launcherPromptInput = document.getElementById('launcher-prompt-input');
+  const btnSubmitLaunch = document.getElementById('btn-submit-launch');
+
+  // Board Modal Elements
+  const boardModalOverlay = document.getElementById('board-modal-overlay');
+  const boardCloseBtn = document.getElementById('board-close-btn');
+  const btnBoardAddFeedback = document.getElementById('btn-board-add-feedback');
+  const boardTasksList = document.getElementById('board-tasks-list');
+
+  // Session Details Modal
   const sessionDetailOverlay = document.getElementById('session-detail-overlay');
   const sessionModalTitle = document.getElementById('session-modal-title');
   const sessionModalBody = document.getElementById('session-modal-body');
@@ -53,8 +84,42 @@
   const btnTuiTransfer = document.getElementById('btn-tui-transfer');
   const tuiToast = document.getElementById('tui-toast');
 
-  // Audio / Haptic alert
+  // -------------------------------------------------------------------------
+  // Alert System (Web Audio chime, Vibration, Lock-screen Push)
+  // -------------------------------------------------------------------------
+  function updateAlertsUI() {
+    if (!btnToggleAlerts) return;
+    if (alertsEnabled) {
+      btnToggleAlerts.textContent = '[ 🔔 ON ]';
+      btnToggleAlerts.classList.add('active');
+    } else {
+      btnToggleAlerts.textContent = '[ 🔕 OFF ]';
+      btnToggleAlerts.classList.remove('active');
+    }
+  }
+
+  if (btnToggleAlerts) {
+    updateAlertsUI();
+    btnToggleAlerts.addEventListener('click', async () => {
+      alertsEnabled = !alertsEnabled;
+      localStorage.setItem('agentdesk_alerts', alertsEnabled ? 'true' : 'false');
+      updateAlertsUI();
+      if (alertsEnabled) {
+        if ('Notification' in window && Notification.permission === 'default') {
+          try {
+            await Notification.requestPermission();
+          } catch (e) {}
+        }
+        playAlert();
+        showToast('✓ ALERTS ENABLED');
+      } else {
+        showToast('ALERTS MUTED');
+      }
+    });
+  }
+
   function playAlert() {
+    if (!alertsEnabled) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -70,8 +135,32 @@
       osc.start();
       osc.stop(audioCtx.currentTime + 0.31);
     } catch (e) {}
+
     if ('vibrate' in navigator) {
       try { navigator.vibrate([150, 80, 150]); } catch (e) {}
+    }
+  }
+
+  function sendLockScreenNotification(title, body) {
+    if (!alertsEnabled) return;
+    playAlert();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(title, {
+            body: body,
+            icon: './icon.svg',
+            badge: './icon.svg',
+            vibrate: [200, 100, 200],
+            tag: 'agentdesk-alert',
+            data: { url: window.location.href }
+          });
+        }).catch(() => {
+          new Notification(title, { body, icon: './icon.svg' });
+        });
+      } else {
+        new Notification(title, { body, icon: './icon.svg' });
+      }
     }
   }
 
@@ -82,7 +171,9 @@
     setTimeout(() => tuiToast.classList.remove('show'), 2000);
   }
 
+  // -------------------------------------------------------------------------
   // API Client
+  // -------------------------------------------------------------------------
   function getUrl(path, params = {}) {
     const u = new URL(path, window.location.origin);
     if (secret) u.searchParams.set('secret', secret);
@@ -108,7 +199,9 @@
     return res.json();
   }
 
+  // -------------------------------------------------------------------------
   // Bottom Navigation Switching
+  // -------------------------------------------------------------------------
   document.querySelectorAll('.tui-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tui-nav-btn').forEach(b => b.classList.remove('active'));
@@ -119,11 +212,12 @@
       if (targetView) targetView.classList.add('active');
 
       if (targetId === 'sessions-view') loadSessions();
-      if (targetId === 'board-view') loadBoard();
     });
   });
 
+  // -------------------------------------------------------------------------
   // Render Workspace Filter Strip
+  // -------------------------------------------------------------------------
   function renderWorkspaces(workspaces, panes) {
     if (!workspaces || !wsTabStrip) return;
 
@@ -152,7 +246,9 @@
     });
   }
 
-  // Render Herdr Panes
+  // -------------------------------------------------------------------------
+  // Render Herdr Panes & Telemetry Badges
+  // -------------------------------------------------------------------------
   function renderSnapshot(snap) {
     if (!snap) return;
     currentSnapshot = snap;
@@ -205,6 +301,17 @@
       // Status marker symbol
       const statusIcon = isWorking ? '●' : (isBlocked ? '▲' : (status === 'idle' ? '■' : '○'));
 
+      // Telemetry badge
+      const tel = p.telemetry;
+      const hasTel = tel && (tel.is_running || tel.turns > 0 || tel.duration_str);
+      const telBadge = hasTel ? `
+        <div class="pane-telemetry-badge">
+          <span>⏱️ ${tel.duration_str || '0s'}</span>
+          <span>• ${tel.turns || 0} turns</span>
+          <span>• ~${Math.round((tel.estimated_tokens || 0) / 1000)}k tok</span>
+        </div>
+      ` : '';
+
       return `
         <div class="pane-box ${isWorking ? 'is-working' : ''} ${isBlocked ? 'is-blocked' : ''}" data-pane-id="${pid}">
           <div class="pane-topbar">
@@ -219,6 +326,7 @@
           <div class="pane-body">
             <div class="pane-title">${escapeHtml(title)}</div>
             <div class="pane-meta">cwd: ${escapeHtml(cwd)}</div>
+            ${telBadge}
           </div>
           <div class="pane-actions-bar">
             <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(ag)} // ${pid}')">&gt; PEEK</button>
@@ -263,7 +371,9 @@
   bannerApproveBtn.addEventListener('click', () => window.tuiApprove(blockedPaneId));
   bannerRejectBtn.addEventListener('click', () => window.tuiInterrupt(blockedPaneId));
 
-  // Terminal Drawer
+  // -------------------------------------------------------------------------
+  // Terminal Drawer & Process Kill
+  // -------------------------------------------------------------------------
   window.tuiPeek = function(paneId, title = 'TERMINAL') {
     activeTerminalPaneId = paneId;
     terminalPaneTitle.textContent = title;
@@ -299,7 +409,26 @@
     terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
   });
 
-  // Macro Keys on keypad
+  // Emergency Process Kill Button
+  if (btnDrawerKill) {
+    btnDrawerKill.addEventListener('click', async () => {
+      if (!activeTerminalPaneId) return;
+      if (!confirm(`Emergency kill active process in pane ${activeTerminalPaneId}?`)) return;
+      try {
+        await api(`/api/pane/${encodeURIComponent(activeTerminalPaneId)}/kill`, {
+          method: 'POST',
+          body: { force: true }
+        });
+        showToast(`⛔ PROCESS TERMINATED IN ${activeTerminalPaneId}`);
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 500);
+        setTimeout(refreshPanes, 800);
+      } catch (err) {
+        alert('Kill failed: ' + err.message);
+      }
+    });
+  }
+
+  // Keypad Actions
   document.querySelectorAll('.keycap').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!activeTerminalPaneId) return;
@@ -335,6 +464,68 @@
     });
   });
 
+  // Quick Prompt Chips
+  tuiPromptChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cmd = chip.getAttribute('data-cmd');
+      if (!cmd || !activeTerminalPaneId) return;
+      tuiInputBox.value = cmd;
+      sendTuiCommand();
+    });
+  });
+
+  // Voice Dictation
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec && btnVoiceDictate) {
+    speechRecognition = new SpeechRec();
+    speechRecognition.continuous = false;
+    speechRecognition.interimResults = false;
+    speechRecognition.lang = 'en-US';
+
+    speechRecognition.onstart = () => {
+      isRecording = true;
+      btnVoiceDictate.classList.add('recording');
+      showToast('🎙️ LISTENING...');
+    };
+
+    speechRecognition.onresult = (evt) => {
+      if (evt.results && evt.results[0] && evt.results[0][0]) {
+        const transcript = evt.results[0][0].transcript;
+        if (transcript) {
+          tuiInputBox.value = tuiInputBox.value ? `${tuiInputBox.value} ${transcript}` : transcript;
+          tuiInputBox.focus();
+          showToast('✓ VOICE CAPTURED');
+        }
+      }
+    };
+
+    speechRecognition.onerror = (e) => {
+      showToast(`! MIC ERROR: ${e.error || 'failed'}`);
+      isRecording = false;
+      btnVoiceDictate.classList.remove('recording');
+    };
+
+    speechRecognition.onend = () => {
+      isRecording = false;
+      btnVoiceDictate.classList.remove('recording');
+    };
+
+    btnVoiceDictate.addEventListener('click', () => {
+      if (isRecording) {
+        speechRecognition.stop();
+      } else {
+        try {
+          speechRecognition.start();
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+    });
+  } else if (btnVoiceDictate) {
+    btnVoiceDictate.style.display = 'none';
+  }
+
+  // Prompt Send Command
   async function sendTuiCommand() {
     const txt = tuiInputBox.value.trim();
     if (!txt || !activeTerminalPaneId) return;
@@ -357,7 +548,185 @@
     if (e.key === 'Enter') sendTuiCommand();
   });
 
+  // -------------------------------------------------------------------------
+  // Remote Agent Launcher Modal (Phase 4)
+  // -------------------------------------------------------------------------
+  async function loadWorkdirs() {
+    try {
+      const res = await api('/api/workdirs');
+      const dirs = res.workdirs || [];
+      let opts = `<option value="~/Work">~/Work (Root)</option>`;
+      dirs.forEach(d => {
+        opts += `<option value="${escapeHtml(d.path)}">${escapeHtml(d.name)} (${escapeHtml(d.path.replace('/home/ashish', '~'))})</option>`;
+      });
+      launcherWorkdirSelect.innerHTML = opts;
+    } catch (e) {
+      console.warn('Failed to load workdirs', e);
+    }
+  }
+
+  if (btnOpenLauncher) {
+    btnOpenLauncher.addEventListener('click', () => {
+      launcherModalOverlay.style.display = 'block';
+      loadWorkdirs();
+    });
+  }
+
+  if (launcherCloseBtn) {
+    launcherCloseBtn.addEventListener('click', () => {
+      launcherModalOverlay.style.display = 'none';
+    });
+  }
+
+  if (launcherModalOverlay) {
+    launcherModalOverlay.addEventListener('click', (e) => {
+      if (e.target === launcherModalOverlay) {
+        launcherModalOverlay.style.display = 'none';
+      }
+    });
+  }
+
+  if (btnSubmitLaunch) {
+    btnSubmitLaunch.addEventListener('click', async () => {
+      const cwd = launcherWorkdirSelect.value || '~/Work';
+      const agent = launcherAgentSelect.value || 'agy';
+      const label = launcherLabelInput.value.trim() || `Agent-${agent}`;
+      const prompt = launcherPromptInput.value.trim();
+
+      btnSubmitLaunch.disabled = true;
+      btnSubmitLaunch.textContent = 'LAUNCHING...';
+      try {
+        await api('/api/agents/launch', {
+          method: 'POST',
+          body: { cwd, agent, label, prompt }
+        });
+        showToast(`✓ LAUNCHED ${label}`);
+        launcherModalOverlay.style.display = 'none';
+        launcherLabelInput.value = '';
+        launcherPromptInput.value = '';
+        setTimeout(refreshPanes, 800);
+      } catch (err) {
+        alert('Launch failed: ' + err.message);
+      } finally {
+        btnSubmitLaunch.disabled = false;
+        btnSubmitLaunch.textContent = '> LAUNCH IN HERDR ↵';
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // AgentR Blackboard Modal (Phase 5)
+  // -------------------------------------------------------------------------
+  async function loadBoard() {
+    if (!boardTasksList) return;
+    boardTasksList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ loading blackboard... ]</div>';
+    try {
+      const res = await api('/api/board');
+      const board = res.board || {};
+      const tasks = board.tasks || [];
+      const feedback = board.feedback || [];
+
+      let html = '<div style="margin-bottom:14px;">';
+      if (tasks.length === 0) {
+        html += '<div style="color:var(--text-muted); text-align:center; padding:14px;">(no active tasks on board)</div>';
+      } else {
+        tasks.forEach(t => {
+          html += `
+            <div class="task-entry">
+              <div class="task-entry-top">
+                <span style="font-weight:700; color:var(--text); font-size:12px;">${escapeHtml(t.title)}</span>
+                <select class="tui-select" onchange="window.tuiUpdateTask('${t.id}', this.value)">
+                  <option value="todo" ${t.status === 'todo' ? 'selected' : ''}>TODO</option>
+                  <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>IN PROGRESS</option>
+                  <option value="review" ${t.status === 'review' ? 'selected' : ''}>REVIEW</option>
+                  <option value="done" ${t.status === 'done' ? 'selected' : ''}>DONE</option>
+                </select>
+              </div>
+              <div style="font-size:10px; color:var(--text-muted);">
+                id: ${t.id} | agent: <b style="color:var(--cyan);">${t.agent}</b> | reviewer: <b>${t.review_by || '—'}</b>
+              </div>
+            </div>
+          `;
+        });
+      }
+      html += '</div>';
+
+      // Feedback section
+      html += `
+        <div class="tui-section-header" style="margin-top:16px;">
+          <span>FEEDBACK &amp; FRICTION LOOP</span>
+        </div>
+      `;
+
+      if (feedback.length === 0) {
+        html += '<div style="color:var(--text-muted); text-align:center; padding:10px;">(no feedback logged)</div>';
+      } else {
+        feedback.forEach(fb => {
+          html += `
+            <div style="background:var(--bg-frame); border:1px solid var(--border); border-radius:4px; padding:8px 10px; margin-bottom:6px; font-size:11px;">
+              <span style="color:var(--purple); font-weight:700;">[${escapeHtml(fb.agent)}]</span>
+              <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(fb.timestamp || '')}</span>
+              <div style="margin-top:4px; color:#c9d1d9;">${escapeHtml(fb.text)}</div>
+            </div>
+          `;
+        });
+      }
+
+      boardTasksList.innerHTML = html;
+    } catch (err) {
+      if (boardTasksList) boardTasksList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
+    }
+  }
+
+  window.tuiUpdateTask = async function(taskId, status) {
+    try {
+      await api('/api/board/task/update', { method: 'POST', body: { id: taskId, status } });
+      showToast(`✓ TASK ${taskId} -> ${status}`);
+      loadBoard();
+    } catch (err) {
+      alert('Update error: ' + err.message);
+    }
+  };
+
+  if (btnToggleBoard) {
+    btnToggleBoard.addEventListener('click', () => {
+      boardModalOverlay.style.display = 'block';
+      loadBoard();
+    });
+  }
+
+  if (boardCloseBtn) {
+    boardCloseBtn.addEventListener('click', () => {
+      boardModalOverlay.style.display = 'none';
+    });
+  }
+
+  if (boardModalOverlay) {
+    boardModalOverlay.addEventListener('click', (e) => {
+      if (e.target === boardModalOverlay) boardModalOverlay.style.display = 'none';
+    });
+  }
+
+  if (btnBoardAddFeedback) {
+    btnBoardAddFeedback.addEventListener('click', async () => {
+      const text = prompt('LOG AGENT FRICTION OR FEEDBACK:');
+      if (!text) return;
+      try {
+        await api('/api/board/feedback', {
+          method: 'POST',
+          body: { text: text.trim(), agent: 'mobile' }
+        });
+        showToast('✓ FEEDBACK LOGGED');
+        loadBoard();
+      } catch (err) {
+        alert('Failed: ' + err.message);
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Sessions & AgentR Search
+  // -------------------------------------------------------------------------
   async function loadSessions(query = '') {
     sessionsList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ querying agentr engine... ]</div>';
     try {
@@ -411,7 +780,9 @@
     }, 280);
   });
 
-  // Session Log Modal
+  // -------------------------------------------------------------------------
+  // Session Transcript Log & Agent Handoff Modal
+  // -------------------------------------------------------------------------
   async function openSessionLog(agent, cid) {
     selectedSession = { agent, cid };
     sessionModalTitle.textContent = `LOG // ${agent.toUpperCase()} // ${cid.slice(0, 12)}…`;
@@ -491,96 +862,9 @@
     }
   });
 
-  // Project Blackboard (Optional)
-  async function loadBoard() {
-    if (!boardTasksList) return;
-    boardTasksList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ loading blackboard... ]</div>';
-    try {
-      const res = await api('/api/board');
-      const board = res.board || {};
-      const tasks = board.tasks || [];
-      const feedback = board.feedback || [];
-
-      let html = '<div style="margin-bottom:14px;">';
-      if (tasks.length === 0) {
-        html += '<div style="color:var(--text-muted); text-align:center; padding:14px;">(no active tasks)</div>';
-      } else {
-        tasks.forEach(t => {
-          html += `
-            <div class="task-entry">
-              <div class="task-entry-top">
-                <span style="font-weight:700; color:var(--text); font-size:12px;">${escapeHtml(t.title)}</span>
-                <select class="tui-select" onchange="window.tuiUpdateTask('${t.id}', this.value)">
-                  <option value="todo" ${t.status === 'todo' ? 'selected' : ''}>TODO</option>
-                  <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>IN PROGRESS</option>
-                  <option value="review" ${t.status === 'review' ? 'selected' : ''}>REVIEW</option>
-                  <option value="done" ${t.status === 'done' ? 'selected' : ''}>DONE</option>
-                </select>
-              </div>
-              <div style="font-size:10px; color:var(--text-muted);">
-                id: ${t.id} | agent: <b style="color:var(--cyan);">${t.agent}</b> | reviewer: <b>${t.review_by || '—'}</b>
-              </div>
-            </div>
-          `;
-        });
-      }
-      html += '</div>';
-
-      // Feedback section
-      html += `
-        <div class="tui-section-header" style="margin-top:16px;">
-          <span>FEEDBACK &amp; FRICTION LOOP</span>
-        </div>
-      `;
-
-      if (feedback.length === 0) {
-        html += '<div style="color:var(--text-muted); text-align:center; padding:10px;">(no feedback logged)</div>';
-      } else {
-        feedback.forEach(fb => {
-          html += `
-            <div style="background:var(--bg-frame); border:1px solid var(--border); border-radius:4px; padding:8px 10px; margin-bottom:6px; font-size:11px;">
-              <span style="color:var(--purple); font-weight:700;">[${escapeHtml(fb.agent)}]</span>
-              <span style="color:var(--text-muted); font-size:10px;">${escapeHtml(fb.timestamp || '')}</span>
-              <div style="margin-top:4px; color:#c9d1d9;">${escapeHtml(fb.text)}</div>
-            </div>
-          `;
-        });
-      }
-
-      boardTasksList.innerHTML = html;
-    } catch (err) {
-      if (boardTasksList) boardTasksList.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
-    }
-  }
-
-  window.tuiUpdateTask = async function(taskId, status) {
-    try {
-      await api('/api/board/task/update', { method: 'POST', body: { id: taskId, status } });
-      showToast(`✓ TASK ${taskId} -> ${status}`);
-      loadBoard();
-    } catch (err) {
-      alert('Update error: ' + err.message);
-    }
-  };
-
-  if (btnAddFeedbackBtn) {
-    btnAddFeedbackBtn.addEventListener('click', async () => {
-      const text = prompt('LOG AGENT FRICTION OR IDEA:');
-      if (!text) return;
-      try {
-        await api('/api/board/feedback', {
-          method: 'POST',
-          body: { text: text.trim(), agent: 'mobile' }
-        });
-        showToast('✓ FEEDBACK LOGGED');
-        loadBoard();
-      } catch (err) {
-        alert('Failed: ' + err.message);
-      }
-    });
-  }
-
-  // Refresh
+  // -------------------------------------------------------------------------
+  // Refresh & SSE Event Stream
+  // -------------------------------------------------------------------------
   async function refreshPanes() {
     try {
       connDot.classList.remove('offline');
@@ -596,7 +880,6 @@
 
   btnRefresh.addEventListener('click', refreshPanes);
 
-  // SSE Stream
   function initSSE() {
     if (eventSource) {
       try { eventSource.close(); } catch (e) {}
@@ -619,7 +902,16 @@
           (data.changes || []).forEach(c => {
             if (c.to === 'blocked') hasBlocked = true;
           });
-          if (hasBlocked) playAlert();
+          if (hasBlocked) {
+            sendLockScreenNotification('Agent Blocked', 'An agent is waiting for input or approval');
+          }
+          refreshPanes();
+        } else if (data.type === 'agent.blocked') {
+          sendLockScreenNotification('Agent Blocked', data.message || `Pane ${data.pane_id} is waiting for user input.`);
+          refreshPanes();
+        } else if (data.type === 'run.completed') {
+          sendLockScreenNotification('Autonomous Run Complete', data.message || `Pane ${data.pane_id} completed execution.`);
+          showToast(`🎉 RUN FINISHED: ${data.pane_id}`);
           refreshPanes();
         }
       } catch (err) {}
@@ -641,7 +933,7 @@
       .replace(/'/g, '&#039;');
   }
 
-  // PWA
+  // Register PWA Service Worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }

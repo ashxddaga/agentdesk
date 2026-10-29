@@ -1,5 +1,5 @@
 // AgentDesk Service Worker
-const CACHE_NAME = 'agentdesk-v1';
+const CACHE_NAME = 'agentdesk-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -34,5 +34,37 @@ self.addEventListener('fetch', (event) => {
   }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+
+// Lock-Screen Push & Notification Handlers
+self.addEventListener('push', (event) => {
+  let data = { title: 'AgentDesk Alert', body: 'Agent waiting for input', tag: 'agentdesk-alert' };
+  try {
+    if (event.data) data = event.data.json();
+  } catch (e) {
+    if (event.data) data.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: './icon.svg',
+      badge: './icon.svg',
+      vibrate: [200, 100, 200],
+      tag: data.tag || 'agentdesk-alert',
+      data: data
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('./');
+    })
   );
 });

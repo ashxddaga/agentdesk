@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from unittest.mock import patch, MagicMock
@@ -28,7 +29,6 @@ class TestHerdrBridge(unittest.TestCase):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         ok = self.bridge.send_input("p-1", "echo hi\n", submit=True)
         self.assertTrue(ok)
-        # Should have called send-text and send-keys enter
         calls = [c[0][0] for c in mock_run.call_args_list]
         self.assertTrue(any("send-text" in cmd for cmd in calls))
         self.assertTrue(any("send-keys" in cmd for cmd in calls))
@@ -47,6 +47,43 @@ class TestHerdrBridge(unittest.TestCase):
                 self.assertEqual(mock_call.call_count, 2)
                 mock_call.assert_any_call("pane.send_text", {"pane_id": "p-1", "text": "hello world"})
                 mock_call.assert_any_call("pane.send_keys", {"pane_id": "p-1", "keys": ["enter"]})
+
+    @patch("agentdesk.herdr_bridge.subprocess.run")
+    def test_kill_pane_interrupt(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        ok = self.bridge.kill_pane("p-1", force=False)
+        self.assertTrue(ok)
+
+    @patch("agentdesk.herdr_bridge.subprocess.run")
+    def test_kill_pane_close(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        ok = self.bridge.kill_pane("p-1", close=True)
+        self.assertTrue(ok)
+        calls = [c[0][0] for c in mock_run.call_args_list]
+        self.assertTrue(any("close" in cmd for cmd in calls))
+
+    @patch("agentdesk.herdr_bridge.subprocess.run")
+    def test_launch_workspace_agent(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=json.dumps({
+                "type": "ok",
+                "result": {
+                    "workspace": {"workspace_id": "ws-99"},
+                    "root_pane": {"pane_id": "ws-99:p1"}
+                }
+            }),
+            stderr=""
+        )
+        res = self.bridge.launch_workspace_agent(
+            label="TestWorkspace",
+            cwd="~/Work",
+            agent_kind="agy",
+            initial_prompt="do task"
+        )
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["workspace_id"], "ws-99")
+        self.assertEqual(res["pane_id"], "ws-99:p1")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
@@ -142,6 +143,121 @@ class HerdrBridge:
             return res.returncode == 0
         except Exception:
             return False
+
+    def get_pane_process_info(self, pane_id: str) -> Dict[str, Any]:
+        """Fetch process information for a pane."""
+        try:
+            res = subprocess.run(
+                ["herdr", "pane", "process-info", "--pane", pane_id],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                data = json.loads(res.stdout)
+                return data.get("result", {}).get("process_info", {})
+        except Exception:
+            pass
+        return {}
+
+    def kill_pane(self, pane_id: str, force: bool = False, close: bool = False) -> bool:
+        """Interrupt or terminate the active process in a pane."""
+        try:
+            if close:
+                res = subprocess.run(["herdr", "pane", "close", pane_id], capture_output=True, text=True, timeout=3)
+                return res.returncode == 0
+
+            info = self.get_pane_process_info(pane_id)
+            pid = None
+            procs = info.get("foreground_processes", [])
+            if procs:
+                pid = procs[0].get("pid")
+            if not pid:
+                pid = info.get("shell_pid")
+
+            if force and pid and pid > 1:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                    return True
+                except ProcessLookupError:
+                    return True
+                except Exception:
+                    pass
+
+            # Standard clean interrupt
+            return self.send_keys(pane_id, ["ctrl+c"])
+        except Exception:
+            return False
+
+    def launch_workspace_agent(
+        self,
+        label: str,
+        cwd: str,
+        agent_kind: str = "agy",
+        initial_prompt: str = ""
+    ) -> Dict[str, Any]:
+        """Create a new Herdr workspace and start an agent in its root pane."""
+        abs_cwd = os.path.expanduser(cwd)
+        if not os.path.isdir(abs_cwd):
+            abs_cwd = os.path.expanduser("~/Work")
+
+        clean_label = label.strip() or f"Agent-{int(time.time())}"
+
+        # 1. Create workspace
+        try:
+            cmd = ["herdr", "workspace", "create", "--label", clean_label, "--cwd", abs_cwd]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode != 0:
+                raise RuntimeError(f"Failed to create workspace: {res.stderr}")
+            data = json.loads(res.stdout)
+            result = data.get("result", {})
+            root_pane = result.get("root_pane", {})
+            workspace = result.get("workspace", {})
+            pane_id = root_pane.get("pane_id")
+            ws_id = workspace.get("workspace_id")
+
+            if not pane_id:
+                raise RuntimeError("Workspace created but no root pane found")
+
+            # 2. Launch the requested agent
+            time.sleep(0.3)
+            agent_cmd = agent_kind.strip().lower()
+            if agent_cmd in ("agy", "opencode", "freebuff", "grok", "claude"):
+                # Run the agent in the shell
+                self.send_input(pane_id, agent_cmd, submit=True)
+                if initial_prompt:
+                    # Give agent a brief moment to initialize then send prompt
+                    time.sleep(1.2)
+                    self.send_input(pane_id, initial_prompt, submit=True)
+            elif initial_prompt:
+                self.send_input(pane_id, initial_prompt, submit=True)
+
+            return {
+                "status": "ok",
+                "workspace_id": ws_id,
+                "workspace_label": clean_label,
+                "pane_id": pane_id,
+                "cwd": abs_cwd,
+                "agent": agent_cmd
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @staticmethod
+    def list_workdirs(root: str = "~/Work") -> List[Dict[str, str]]:
+        """List active repositories and project folders under root."""
+        abs_root = os.path.expanduser(root)
+        if not os.path.isdir(abs_root):
+            return []
+        try:
+            dirs = [
+                {"name": d, "path": os.path.join(abs_root, d)}
+                for d in sorted(os.listdir(abs_root))
+                if os.path.isdir(os.path.join(abs_root, d)) and not d.startswith((".", "_"))
+            ]
+            return dirs
+        except Exception:
+            return []
 
     def subscribe(self, subscription_types: Optional[List[str]] = None) -> socket.socket:
         """Open a long-lived socket for Herdr events."""

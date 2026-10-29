@@ -1,16 +1,15 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>herdr // agentdesk</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" type="image/svg+xml" href="icon.svg" />
-  <link rel="apple-touch-icon" href="icon.svg" />
-  <meta name="theme-color" content="#07090e" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>HERDR // agentdesk</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta name="theme-color" content="#07090e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -20,15 +19,20 @@
       <span class="tui-logo">&gt;_</span>
       <div class="tui-title">HERDR <span>// agentdesk</span></div>
     </div>
-    <div class="tui-status-tag" id="conn-status-tag">
-      <div class="tui-dot" id="conn-dot"></div>
-      <span id="conn-label">ONLINE</span>
+    <div class="header-tools">
+      <button class="tui-header-btn" id="btn-toggle-alerts" title="Toggle Sound &amp; Push Alerts">[ 🔔 ON ]</button>
+      <button class="tui-header-btn" id="btn-open-launcher" title="Launch new agent in Herdr">[ + LAUNCH ]</button>
+      <button class="tui-header-btn" id="btn-toggle-board" title="View AgentR task board">[ 📋 BOARD ]</button>
+      <div class="tui-status-tag" id="conn-status-tag">
+        <div class="tui-dot" id="conn-dot"></div>
+        <span id="conn-label">ONLINE</span>
+      </div>
     </div>
   </header>
 
   <!-- Workspace Filter Strip (Herdr Style) -->
   <div class="ws-strip" id="ws-tab-strip">
-    <button class="ws-tab active" data-ws="">[ ALL <span class="badge" id="ws-badge-all">9</span> ]</button>
+    <button class="ws-tab active" data-ws="">[ ALL <span class="badge" id="ws-badge-all">8</span> ]</button>
     <!-- Dynamic workspaces injected via JS -->
   </div>
 
@@ -62,8 +66,10 @@
       <div class="tui-section-header">
         <span>CROSS-AGENT SESSIONS</span>
       </div>
-      <input type="search" id="session-search-input" class="tui-search-input" placeholder="&gt; search transcripts across agy, opencode, freebuff…" />
-      <div class="tui-filter-pills" id="agent-filter-pills">
+      <div class="search-bar">
+        <input type="text" id="session-search-input" placeholder="&gt; search transcripts across agy, opencode, freebuff…" autocomplete="off" />
+      </div>
+      <div class="agent-pills" id="agent-filter-pills">
         <button class="pill-opt active" data-agent="">ALL</button>
         <button class="pill-opt" data-agent="agy">AGY</button>
         <button class="pill-opt" data-agent="freebuff">FREEBUFF</button>
@@ -83,7 +89,10 @@
     <div class="terminal-modal-frame" id="terminal-modal-frame">
       <div class="tui-drawer-header">
         <span class="tui-drawer-title" id="terminal-pane-title">TERMINAL // w3:p8</span>
-        <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
+        <div class="drawer-header-actions">
+          <button class="tui-btn-kill" id="btn-drawer-kill" title="Emergency stop process">[ 🛑 KILL ]</button>
+          <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
+        </div>
       </div>
       <div class="terminal-stream-box" id="terminal-stream-content">Loading stream…</div>
       
@@ -97,10 +106,73 @@
         <button class="keycap" id="btn-tui-scroll">⬇ End</button>
       </div>
 
+      <!-- Quick Prompt Chips -->
+      <div class="tui-prompt-chips" id="tui-prompt-chips">
+        <button class="prompt-chip" data-cmd="Continue">Continue</button>
+        <button class="prompt-chip" data-cmd="Run tests">Run tests</button>
+        <button class="prompt-chip" data-cmd="Fix and retry">Fix &amp; retry</button>
+        <button class="prompt-chip" data-cmd="Git status">Git status</button>
+        <button class="prompt-chip" data-cmd="Explain current state">Explain</button>
+      </div>
+
       <div class="tui-input-line">
         <span class="tui-prompt-symbol">&gt;</span>
         <input type="text" class="tui-input-text" id="tui-input-box" placeholder="send text or prompt..." />
+        <button class="btn-voice-dictate" id="btn-voice-dictate" title="Voice Dictation">🎙️</button>
         <button class="btn-tui-send" id="btn-tui-send">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Agent Launcher Modal -->
+  <div class="terminal-modal-overlay" id="launcher-modal-overlay">
+    <div class="terminal-modal-frame" style="max-height: 80vh;">
+      <div class="tui-drawer-header">
+        <span class="tui-drawer-title">[ + REMOTE AGENT LAUNCHER ]</span>
+        <button class="tui-btn-close" id="launcher-close-btn">[ CLOSE ]</button>
+      </div>
+      <div class="launcher-form">
+        <label class="form-label">WORKSPACE / DIRECTORY:</label>
+        <select class="tui-select-full" id="launcher-workdir-select">
+          <option value="~/Work">~/Work (Root)</option>
+        </select>
+
+        <label class="form-label" style="margin-top:10px;">AGENT FLAVOR:</label>
+        <select class="tui-select-full" id="launcher-agent-select">
+          <option value="agy">agy (Antigravity CLI / Gemini 2.5 Flash)</option>
+          <option value="opencode">opencode (DeepSeek V3 / Free)</option>
+          <option value="freebuff">freebuff (Local buffer runner)</option>
+          <option value="grok">grok (Grok 4.7)</option>
+          <option value="bash">bash (Interactive Shell)</option>
+        </select>
+
+        <label class="form-label" style="margin-top:10px;">WORKSPACE LABEL:</label>
+        <input type="text" class="tui-input-full" id="launcher-label-input" placeholder="e.g. MyFeature" />
+
+        <label class="form-label" style="margin-top:10px;">INITIAL TASK / PROMPT (OPTIONAL):</label>
+        <textarea class="tui-textarea-full" id="launcher-prompt-input" rows="3" placeholder="Describe the goal or instruction for this agent..."></textarea>
+
+        <div style="margin-top:14px; display:flex; justify-content: flex-end;">
+          <button class="btn-tui-send" id="btn-submit-launch" style="padding:10px 18px; font-size:12px;">
+            &gt; LAUNCH IN HERDR ↵
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AgentR Board Slide-Over Modal -->
+  <div class="terminal-modal-overlay" id="board-modal-overlay">
+    <div class="terminal-modal-frame" style="max-height: 88vh;">
+      <div class="tui-drawer-header">
+        <span class="tui-drawer-title">📋 AGENTR TASK BLACKBOARD</span>
+        <div class="drawer-header-actions">
+          <button class="tui-btn-close" id="btn-board-add-feedback" style="color:var(--amber); border-color:var(--amber);">[+ NOTE]</button>
+          <button class="tui-btn-close" id="board-close-btn">[ CLOSE ]</button>
+        </div>
+      </div>
+      <div class="terminal-stream-box" id="board-tasks-list" style="background:#080a0f;">
+        Loading blackboard…
       </div>
     </div>
   </div>

@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.0] — 2026-10-29
+
+### 🚀 Full Delivery: Phases 3, 4 & 5 (Remote Alerts, Lifecycle Control & Autonomous Supervision)
+- **Phase 3: Remote Alerts & Mobile Ergonomics**:
+  - **Lock-Screen Push Notifications**: Service Worker push notification handler in `web/sw.js` with notification click autofocus and vibration pattern `[200, 100, 200]`.
+  - **Synthesized Web Audio Chimes**: Dual-frequency triangle-wave chime (440Hz -> 880Hz) via HTML5 Web Audio API for background alerts without relying on external mp3 assets.
+  - **Tactile Sound & Alert Toggle**: Header control `[ 🔔 ON ]` / `[ 🔕 OFF ]` storing user preference in `localStorage` and requesting browser notification permissions.
+  - **One-Tap Quick Prompt Chips**: Horizontal scroll row featuring one-tap macro chips: `[ Continue ]`, `[ Run tests ]`, `[ Fix & retry ]`, `[ Git status ]`, `[ Explain ]`.
+  - **Voice-to-Text Dictation**: Integrated `webkitSpeechRecognition` with active recording animation and direct insertion into terminal prompt input.
+- **Phase 4: Remote Agent Lifecycle Control**:
+  - **Remote Agent & Workspace Launcher (`POST /api/agents/launch`)**:
+    - Select workspace directory from active repositories under `~/Work` via `GET /api/workdirs`.
+    - Select agent flavor (`agy`, `opencode`, `freebuff`, `grok`, `bash`).
+    - Specify custom workspace label and optional initial goal/prompt.
+    - Launches a dedicated Herdr workspace and root pane over socket RPC.
+  - **Emergency Process Termination (`POST /api/pane/{id}/kill`)**:
+    - Dispatches clean `ctrl+c` (SIGINT) or force termination (`SIGKILL`) directly to the foreground process detected in Herdr pane info (`get_pane_process_info`).
+    - Emergency termination trigger in peek drawer header (`[ 🛑 KILL ]`).
+- **Phase 5: Autonomous Long Run Supervision & AgentR Integration**:
+  - **Background `AutonomousWatchdog`**:
+    - Threaded daemon watchdog continuously monitoring active agent states, turns count, and token expenditure estimates.
+    - Emits real-time SSE lifecycle events: `run.completed` and `agent.blocked`.
+  - **Live Pane Telemetry Badges**:
+    - Each pane card displays real-time execution duration (`⏱️ 4m 12s`), turns executed, and estimated token usage (`~18k tok`).
+  - **AgentR Task Blackboard Overlay (`GET /api/board`, `POST /api/board/feedback`)**:
+    - Dedicated modal drawer accessible from header `[ 📋 BOARD ]` displaying live multi-agent task status (`todo`, `in_progress`, `review`, `done`) and frictionless feedback loop notes.
+  - **Android Parity**:
+    - Updated `Models.kt` and `AgentDeskClient.kt` with `launchAgent`, `killPane`, `getWorkdirs`, and telemetry data structures.
+    - Repackaged `AgentDesk-Android.zip` and mirrored into `web/` for direct download.
+- **Verification**:
+  - Expanded unit test suite from 13 to 19 tests in `tests/test_server.py`, `tests/test_herdr_bridge.py`, and `tests/test_agentr_bridge.py`.
+  - Automated headless mobile browser E2E test in `tests/test_e2e_browser.py` verifying full cockpit flow, prompt chips, launcher modal, board modal, and alert toggles.
+  - 100% test pass rate across `agentdesk` (19/19) and `agentr` (17/17).
+
+---
+
 ## [0.2.0] — 2026-10-29
 
 ### 🚀 Zero-Config Onboarding & Management CLI

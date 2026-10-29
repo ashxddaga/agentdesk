@@ -38,3 +38,15 @@ data class FeedbackItem(
     val timestamp: String,
     val text: String
 )
+
+data class WorkdirInfo(
+    val name: String,
+    val path: String
+)
+
+data class TelemetryInfo(
+    val isRunning: Boolean = false,
+    val durationStr: String = "0s",
+    val turns: Int = 0,
+    val estimatedTokens: Int = 0
+)

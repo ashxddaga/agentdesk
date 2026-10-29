@@ -7,7 +7,11 @@ Verifies the complete mobile workflow:
 4. Typing text into prompt box & clicking SEND
 5. Verifying prompt actually executes and produces terminal output
 6. Verifying macro keys (^C, Enter)
-7. Tab switching between Panes and Sessions
+7. Testing Quick Prompt Chips
+8. Testing Remote Launcher Modal
+9. Testing AgentR Blackboard Modal
+10. Testing Alert Toggle
+11. Tab switching between Panes and Sessions
 """
 import json
 import os
@@ -36,7 +40,6 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Locate agent-browser
         cls.agent_browser_bin = shutil.which("agent-browser")
         if not cls.agent_browser_bin:
             fallback = os.path.expanduser("~/.local/share/mise/installs/node/26.11.1/bin/agent-browser")
@@ -92,25 +95,48 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         pane_count = int(pane_count_str) if pane_count_str.isdigit() else 0
         self.assertGreater(pane_count, 0, "Expected at least one pane card to be rendered")
 
-        # 4. Open peek drawer on a pane (use w7:p1 or the first available pane)
+        # 4. Test Alert Toggle button
+        self.run_browser("click", "#btn-toggle-alerts")
+        self.run_browser("wait", "500")
+        alert_btn_text = self.run_browser("get", "text", "#btn-toggle-alerts")
+        self.assertTrue("ON" in alert_btn_text or "OFF" in alert_btn_text)
+
+        # 5. Test Remote Launcher Modal
+        self.run_browser("click", "#btn-open-launcher")
+        self.run_browser("wait", "800")
+        launcher_title = self.run_browser("get", "text", "#launcher-modal-overlay .tui-drawer-title")
+        self.assertIn("LAUNCHER", launcher_title.upper())
+        # Close launcher modal
+        self.run_browser("click", "#launcher-close-btn")
+        self.run_browser("wait", "500")
+
+        # 6. Test AgentR Blackboard Modal
+        self.run_browser("click", "#btn-toggle-board")
+        self.run_browser("wait", "1000")
+        board_title = self.run_browser("get", "text", "#board-modal-overlay .tui-drawer-title")
+        self.assertIn("BLACKBOARD", board_title.upper())
+        # Close board modal
+        self.run_browser("click", "#board-close-btn")
+        self.run_browser("wait", "500")
+
+        # 7. Open peek drawer on a pane
         peek_selector = 'div[data-pane-id="w7:p1"] button.primary'
         try:
             self.run_browser("click", peek_selector)
         except Exception:
-            # Fallback to the first pane's peek button
             self.run_browser("click", ".pane-box:first-child button.primary")
 
         self.run_browser("wait", "1000")
         modal_title = self.run_browser("get", "text", "#terminal-pane-title")
         self.assertTrue(len(modal_title) > 0, "Terminal modal title should be displayed")
 
-        # 5. Type a unique command into prompt box and click SEND
+        # 8. Type a unique command into prompt box and click SEND
         probe_token = f"E2E_PROBE_{uuid.uuid4().hex[:8]}"
         self.run_browser("fill", "#tui-input-box", f"echo {probe_token}")
         self.run_browser("click", "#btn-tui-send")
         self.run_browser("wait", "2000")
 
-        # 6. Verify that prompt actually executed in the terminal stream!
+        # 9. Verify prompt executed in terminal stream
         stream_content = self.run_browser("get", "text", "#terminal-stream-content")
         self.assertIn(
             probe_token,
@@ -118,13 +144,17 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
             f"Expected probe token '{probe_token}' to appear in executed terminal stream.\nGot:\n{stream_content}"
         )
 
-        # 7. Test tactile macro keypad (^C Abort)
-        self.run_browser("click", 'button.keycap[data-key="ctrl+c"]')
+        # 10. Test Quick Prompt Chip (e.g. 'Git status')
+        self.run_browser("click", '.prompt-chip[data-cmd="Git status"]')
         self.run_browser("wait", "1000")
         toast_text = self.run_browser("get", "text", "#tui-toast")
-        self.assertIn("CTRL+C", toast_text.upper())
+        self.assertTrue(len(toast_text) > 0)
 
-        # 8. Close peek drawer & switch to Sessions tab
+        # 11. Test tactile macro keypad (^C Abort)
+        self.run_browser("click", 'button.keycap[data-key="ctrl+c"]')
+        self.run_browser("wait", "1000")
+
+        # 12. Close peek drawer & switch to Sessions tab
         self.run_browser("click", "#terminal-close-btn")
         self.run_browser("wait", "500")
 

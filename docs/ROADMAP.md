@@ -10,9 +10,10 @@ This document outlines the architectural roadmap, planned features, and mileston
 |---|---|---|---|
 | **Phase 1** | Foundation: Herdr Socket, AgentR Bridge, TUI Design, Browser E2E Test | ✅ Completed | v0.1.x |
 | **Phase 2** | Zero-Config Onboarding: Terminal QR Code, CLI Manager, Guides | ✅ Completed | v0.2.x |
-| **Phase 3** | Remote Alerts & Ergonomics: Lock-Screen Push Notifications & Haptics | 🚧 In Progress | v0.3.x |
-| **Phase 4** | Remote Agent Lifecycle: Remote Launcher, Process Termination, Split Peek | 📅 Planned | v0.4.x |
-| **Phase 5** | Autonomous Run Supervision: Live Metrics, Token Cost, Task Board Reintroduction | 📅 Planned | v0.5.x |
+| **Phase 3** | Remote Alerts & Ergonomics: Lock-Screen Push Notifications, Audio Chimes & Chips | ✅ Completed | v0.3.x |
+| **Phase 4** | Remote Agent Lifecycle: Remote Launcher, Process Termination & Kill | ✅ Completed | v0.3.x |
+| **Phase 5** | Autonomous Run Supervision: Live Metrics, Token Cost & Task Blackboard | ✅ Completed | v0.3.x |
+| **Phase 6** | Advanced Mobile Ergonomics: Multi-Pane Stacked Peek, Offline Synced Buffers | 📅 Planned | v0.4.x |
 
 ---
 
@@ -30,7 +31,7 @@ This document outlines the architectural roadmap, planned features, and mileston
 
 ---
 
-## ✅ Phase 2: Zero-Config Onboarding (Delivered)
+## ✅ Phase 2: Zero-Config Onboarding (Completed)
 
 - [x] **Terminal ANSI QR Code**: `agentdesk qr` generates an instant high-contrast QR code directly in the terminal for camera scanning.
 - [x] **Dynamic Tailscale IP Discovery**: Auto-detects active Tailscale IPv4 address (`tailscale ip -4`) without hardcoded IPs.
@@ -40,48 +41,35 @@ This document outlines the architectural roadmap, planned features, and mileston
 
 ---
 
-## 🚧 Phase 3: Remote Alerts & Mobile Ergonomics (Current Focus)
+## ✅ Phase 3: Remote Alerts & Mobile Ergonomics (Completed)
 
-*Goal: Ensure you never miss an agent waiting for approval, even when your phone is in your pocket or the screen is locked.*
-
-1. **Lock-Screen Push Notifications (Web Push / NTFY Bridge)**:
-   - Implement Web Push API / Service Worker notification payload when a pane transitions to `agent_status: "blocked"`.
-   - Optional local fallback via unified push protocol or native Android broadcast receiver.
-2. **Tactile Haptic & Audio Chime Settings**:
-   - Customizable sound cues (subtle terminal blip) and haptic pulse patterns when tool approval is requested.
-   - Toggle switch in header: `[ Sound: ON/OFF ]` `[ Haptic: ON/OFF ]`.
-3. **Voice-to-Text Prompting**:
-   - Mobile microphone button to dictate prompts using mobile keyboard speech-to-text without syntax distortion.
-4. **Quick Macro Prompt Chips**:
-   - Configurable quick prompt chips below the input box (e.g. `[ Continue ]`, `[ Run Tests ]`, `[ Fix & Retry ]`, `[ Git Status ]`).
+- [x] **Lock-Screen Push Notifications**: Service Worker push notification handler in `web/sw.js` with vibration pattern `[200, 100, 200]`.
+- [x] **Tactile Haptic & Web Audio Chimes**: Synthesized triangle-wave audio chime (440Hz -> 880Hz) on approval requests and completions.
+- [x] **Audio & Push Alert Toggle**: Header switch `[ 🔔 ON ]` / `[ 🔕 OFF ]` storing state in `localStorage`.
+- [x] **Voice-to-Text Dictation**: Mobile microphone button (`🎙️`) leveraging `webkitSpeechRecognition`.
+- [x] **Quick Macro Prompt Chips**: One-tap prompt chips: `[ Continue ]`, `[ Run tests ]`, `[ Fix & retry ]`, `[ Git status ]`, `[ Explain ]`.
 
 ---
 
-## 📅 Phase 4: Remote Agent Lifecycle Control
+## ✅ Phase 4: Remote Agent Lifecycle Control (Completed)
 
-*Goal: Manage, spawn, and recover agent processes from your phone without returning to your physical desk.*
-
-1. **Remote Workspace & Agent Launcher**:
-   - Ability to launch a new agent session in any repository under `~/Work/` directly from the mobile UI.
-   - Choose agent flavor (`agy`, `opencode`, `freebuff`, `bash`) and workspace target.
-2. **Process Management & Emergency Kill**:
-   - Safe process restart and emergency termination (`SIGTERM` / `SIGKILL`) for runaway or hung scripts.
-3. **Multi-Pane Stacked Peek**:
-   - Ability to pin 2 active panes side-by-side or stacked in a split monitor view on tablets/foldables.
-4. **Dynamic Output Filters**:
-   - Toggle to filter ANSI color noise or strip verbose build output to focus strictly on agent thoughts and errors.
+- [x] **Remote Workspace & Agent Launcher**: Modal launcher (`[ + LAUNCH ]`) querying `GET /api/workdirs`, picking agent flavors (`agy`, `opencode`, `freebuff`, `grok`, `bash`), and calling `POST /api/agents/launch`.
+- [x] **Process Management & Emergency Kill**: `POST /api/pane/{id}/kill` sending clean `SIGINT` or `SIGKILL` to foreground process via Herdr RPC.
+- [x] **Emergency Stop Button**: Dedicated `[ 🛑 KILL ]` button in terminal drawer header with confirmation safeguard.
 
 ---
 
-## 📅 Phase 5: Autonomous Long Run Supervision
+## ✅ Phase 5: Autonomous Long Run Supervision (Completed)
 
-*Goal: Safely leave agents building complex architectures overnight or while commuting, with full transparency.*
+- [x] **Autonomous Run Watchdog**: Threaded `AutonomousWatchdog` tracking durations, turns, and token estimates in `agentdesk/server.py`.
+- [x] **Live Pane Telemetry Badges**: Displays execution duration (`⏱️ 4m 12s`), turns count, and token estimates (`~18k tok`) on each pane card.
+- [x] **AgentR Task Blackboard Overlay**: Accessible via `[ 📋 BOARD ]` header button, allowing live task status changes and feedback notes.
+- [x] **End-of-Run Real-Time Alerts**: Dispatches `run.completed` events via SSE stream and triggers phone chimes.
 
-1. **Autonomous Run Watchdog**:
-   - Background monitor detecting stalled sessions (e.g. no output for 10 minutes) with auto-alerts to phone.
-2. **Context Window & Token Meter**:
-   - Real-time gauge of context token usage and estimated API cost per session.
-3. **Re-introduction of the Multi-Agent Task Board**:
-   - Once long autonomous multi-agent runs are verified and stable, re-enable the blackboard tab with live milestone Gantt / task progress.
-4. **End-of-Run Summary Push**:
-   - Automatically compile a bulleted summary of files changed, commits made, and tests passing once `/goal` completes.
+---
+
+## 📅 Phase 6: Advanced Mobile Ergonomics (Next)
+
+1. **Multi-Pane Stacked Peek**: Pin 2 active panes side-by-side or stacked on tablets/foldables.
+2. **Offline Synced Buffers**: Cache terminal history offline in IndexedDB for flaky cell connections.
+3. **Smart Token Billing Breakdown**: Granular cost calculation per model provider.

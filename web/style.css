@@ -695,3 +695,162 @@ nav.tui-nav {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
+
+/* ==========================================================================
+   Header Tools & Remote Controls (Phases 3, 4, 5)
+   ========================================================================== */
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tui-header-btn {
+  background: #111722;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tui-header-btn:hover, .tui-header-btn:active {
+  border-color: var(--blue);
+  color: var(--text);
+}
+
+.tui-header-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: #132230;
+}
+
+.drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tui-btn-kill {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tui-btn-kill:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+.tui-prompt-chips {
+  display: flex;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #090c13;
+  border-top: 1px solid var(--border-muted);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tui-prompt-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.prompt-chip {
+  background: #121824;
+  color: var(--cyan);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.prompt-chip:active {
+  background: var(--cyan);
+  color: #000;
+}
+
+.btn-voice-dictate {
+  background: #151c28;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 9px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.btn-voice-dictate.recording {
+  background: var(--red-dim);
+  border-color: var(--red);
+  animation: pulse-mic 1s infinite;
+}
+
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
+  50% { box-shadow: 0 0 8px 2px rgba(248, 81, 73, 0.7); }
+}
+
+.launcher-form {
+  padding: 14px;
+  background: #07090e;
+  font-family: var(--font-mono);
+}
+
+.form-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.tui-select-full, .tui-input-full, .tui-textarea-full {
+  width: 100%;
+  background: #0d121c;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.tui-select-full:focus, .tui-input-full:focus, .tui-textarea-full:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.pane-telemetry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-top: 5px;
+}

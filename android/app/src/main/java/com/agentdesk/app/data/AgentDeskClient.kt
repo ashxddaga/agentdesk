@@ -204,4 +204,43 @@ class AgentDeskClient(
         val res = client.newCall(req).execute()
         res.isSuccessful
     }
+
+    suspend fun killPane(paneId: String, force: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+        val url = "$baseUrl/api/pane/$paneId/kill${if (secret.isNotEmpty()) "?secret=$secret" else ""}"
+        val body = JSONObject().put("force", force).toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url(url).post(body).build()
+        val res = client.newCall(req).execute()
+        res.isSuccessful
+    }
+
+    suspend fun launchAgent(cwd: String, agent: String, label: String, prompt: String = ""): Boolean = withContext(Dispatchers.IO) {
+        val url = "$baseUrl/api/agents/launch${if (secret.isNotEmpty()) "?secret=$secret" else ""}"
+        val body = JSONObject()
+            .put("cwd", cwd)
+            .put("agent", agent)
+            .put("label", label)
+            .put("prompt", prompt)
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url(url).post(body).build()
+        val res = client.newCall(req).execute()
+        res.isSuccessful
+    }
+
+    suspend fun getWorkdirs(): List<WorkdirInfo> = withContext(Dispatchers.IO) {
+        val url = "$baseUrl/api/workdirs${if (secret.isNotEmpty()) "?secret=$secret" else ""}"
+        val req = Request.Builder().url(url).build()
+        val res = client.newCall(req).execute()
+        if (!res.isSuccessful) return@withContext emptyList()
+
+        val json = JSONObject(res.body?.string() ?: "{}")
+        val arr = json.optJSONArray("workdirs") ?: JSONArray()
+        val list = mutableListOf<WorkdirInfo>()
+        for (i in 0 until arr.length()) {
+            val d = arr.getJSONObject(i)
+            list.add(WorkdirInfo(name = d.optString("name"), path = d.optString("path")))
+        }
+        list
+    }
 }
