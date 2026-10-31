@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.4] — 2026-10-31
+
+### 🕹️ Virtual D-Pad Keypad, Physical Arrow/Tab/Space Forwarding & Desktop j/k Pane Navigation
+- **Issue & Symptom**:
+  1. When an agent CLI shows interactive menus (e.g. model pickers in `agy`, selecting items in `fzf` or `gum`, or checkbox toggles), users on mobile and desktop could not navigate up/down/left/right because the keypad only provided text submission and `y`/`n`/`^C`.
+  2. Pressing physical arrow keys, `Tab`, or `Space` in the terminal peek drawer was ignored and did not reach Herdr's PTY.
+  3. Navigating pane cards on the desktop dashboard required mouse clicking instead of fluid `j`/`k` or arrow key navigation.
+- **Root Cause Analysis (RCA)**:
+  1. The drawer UI lacked directional keypad controls (`▲ Up`, `▼ Down`, `◄ Left`, `► Right`, `⇥ Tab`, `␣ Space`).
+  2. The global `keydown` handler in `web/app.js` did not intercept directional keystrokes while terminal peek was active to forward them via `POST /api/keys`.
+  3. Dashboard pane cards had no active focus index or keyboard-driven selection state.
+- **Fix & Implementation**:
+  1. **Virtual D-Pad Keypad (`web/index.html`, `web/style.css`)**:
+     - Added dedicated `.keycap.nav-key` buttons for `▲ Up`, `▼ Down`, `◄ Left`, `► Right`, plus `⇥ Tab` and `␣ Space` (select/toggle).
+     - Styled navigation keys with distinctive cyan monospace highlights and active tactile feedback.
+  2. **Interactive Key Forwarding (`web/app.js`, `agentdesk/server.py`)**:
+     - Captured physical `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Tab`, `Space`, and `Enter` when terminal peek is open, forwarding them directly to Herdr PTY via `POST /api/keys`.
+     - Normalized `up`, `down`, `left`, `right`, `tab`, `space` in `server.py` to match Herdr's socket specification.
+  3. **Desktop Multiplexer Navigation (`web/app.js`)**:
+     - Added `j` / `k` and `ArrowDown` / `ArrowUp` to cycle through active pane cards with `.is-selected` styling.
+     - Pressing <kbd>Enter</kbd> immediately peeks into the selected pane; <kbd>x</kbd> prompts to close it; <kbd>y</kbd> approves.
+- **Verification**:
+  - Headless browser E2E tests (`tests/test_e2e_browser.py`) verified D-pad count, Up arrow click, physical `ArrowDown` forwarding, and `j`/`k` selection.
+  - All 22 tests in `./run_tests.sh` pass cleanly.
+
+---
+
 ## [0.4.3] — 2026-10-31
 
 ### 💬 Inter-Agent Message Board, Real-Time Comms Bus & Async Agent Collaboration
