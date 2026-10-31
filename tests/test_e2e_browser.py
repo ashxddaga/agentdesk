@@ -125,11 +125,13 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "500")
 
         # 7. Open peek drawer on a pane & verify live stream indicators
-        peek_selector = 'div[data-pane-id="w7:p1"] button.primary'
+        # Note: Must NEVER target an active AI agent pane (like w7:p1 / agy) as sending stdin interrupts the agent session!
+        # Always target a pure shell terminal pane (e.g. w8:p3) or fallback to first non-agy pane.
+        peek_selector = 'div[data-pane-id="w8:p3"] button.primary'
         try:
             self.run_browser("click", peek_selector)
         except Exception:
-            self.run_browser("click", ".pane-box:first-child button.primary")
+            self.run_browser("click", ".pane-box:last-child button.primary")
 
         self.run_browser("wait", "1000")
         modal_title = self.run_browser("get", "text", "#terminal-pane-title")

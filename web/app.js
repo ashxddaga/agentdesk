@@ -224,6 +224,7 @@
       v.classList.toggle('active', v.id === targetId);
     });
     if (targetId === 'sessions-view') loadSessions();
+    if (targetId === 'swarm-view') loadSwarm();
   }
 
   document.querySelectorAll('.tui-nav-btn').forEach(btn => {
@@ -948,6 +949,72 @@
   }
 
   // -------------------------------------------------------------------------
+  // Swarm & Multi-Agent Radar View
+  // -------------------------------------------------------------------------
+  const swarmContainer = document.getElementById('swarm-container');
+  const btnToggleSwarm = document.getElementById('btn-toggle-swarm');
+
+  if (btnToggleSwarm) {
+    btnToggleSwarm.addEventListener('click', () => {
+      switchToView('swarm-view');
+    });
+  }
+
+  async function loadSwarm() {
+    if (!swarmContainer) return;
+    try {
+      const data = await api('/api/swarm');
+      const swarm = data.swarm || {};
+
+      let html = swarm.html_widget || '';
+
+      // Tasks Matrix
+      const tasks = swarm.tasks || [];
+      if (tasks.length > 0) {
+        html += `
+          <div class="swarm-task-matrix">
+            <div class="swarm-matrix-header">
+              <span>PROJECT BLACKBOARD TASKS (${tasks.length})</span>
+              <span style="color:#64748b;">AUTONOMOUS QUEUE</span>
+            </div>
+        `;
+        tasks.slice().reverse().forEach(t => {
+          const stClass = `task-st-${t.status || 'todo'}`;
+          const stLabel = (t.status || 'todo').toUpperCase();
+          let prLink = '';
+          if (t.description && t.description.includes('PR #')) {
+            const m = t.description.match(/PR #(\d+)/);
+            if (m) {
+              prLink = `<a href="https://github.com/tangency-labs/solidcraft/pull/${m[1]}" target="_blank" style="color:#38bdf8; text-decoration:underline; margin-left:6px;">PR #${m[1]}</a>`;
+            }
+          }
+          html += `
+            <div class="swarm-task-row">
+              <span class="task-id-badge">${escapeHtml(t.id)}</span>
+              <span class="${stClass}">[${stLabel}]</span>
+              <span class="task-title-text">${escapeHtml(t.title)}${prLink}</span>
+              <span class="task-agent-tag">@${escapeHtml(t.agent)}</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      swarmContainer.innerHTML = html;
+    } catch (err) {
+      swarmContainer.innerHTML = `<div class="tui-empty-state" style="color:var(--red);">! Failed to load Swarm Radar: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // Periodic swarm updater if swarm-view is open
+  setInterval(() => {
+    const sView = document.getElementById('swarm-view');
+    if (sView && sView.classList.contains('active')) {
+      loadSwarm();
+    }
+  }, 4000);
+
+  // -------------------------------------------------------------------------
   // Sessions & AgentR Search
   // -------------------------------------------------------------------------
   async function loadSessions(query = '') {
@@ -1280,15 +1347,17 @@
       switchToView('panes-view');
     } else if (e.key === '2') {
       switchToView('sessions-view');
+    } else if (e.key === '3' || e.key === 's' || e.key === 'S') {
+      switchToView('swarm-view');
     } else if (e.key === '+' || e.key === 'l' || e.key === 'L') {
       if (btnOpenLauncher) {
         e.preventDefault();
         btnOpenLauncher.click();
       }
     } else if (e.key === 'b' || e.key === 'B') {
-      if (btnOpenBoard) {
+      if (btnToggleBoard) {
         e.preventDefault();
-        btnOpenBoard.click();
+        btnToggleBoard.click();
       }
     } else if (e.key === 'r' || e.key === 'R') {
       e.preventDefault();

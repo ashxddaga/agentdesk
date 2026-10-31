@@ -1159,3 +1159,298 @@ nav.tui-nav {
     display: none; /* Desktop uses header & keyboard shortcuts */
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Multi-Agent Swarm Radar & Topology View
+ * --------------------------------------------------------------------------- */
+.swarm-visualizer-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0 24px;
+}
+
+.swarm-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #090e17;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 4px;
+}
+
+.swarm-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.swarm-icon {
+  font-size: 16px;
+  color: var(--cyan);
+}
+
+.swarm-title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #f1f5f9;
+}
+
+.swarm-badge.live-pulse {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  animation: pulse-ring 2s infinite ease-in-out;
+}
+
+.swarm-stats-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #0d1522;
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.stat-val {
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-lbl {
+  color: var(--text-muted);
+}
+
+.stat-done .stat-val { color: var(--green); }
+.stat-prog .stat-val { color: var(--amber); }
+.stat-agents .stat-val { color: var(--purple, #a855f7); }
+
+/* SVG Topology Canvas */
+.swarm-topology-canvas {
+  background: radial-gradient(circle at 50% 50%, #0d192e 0%, #040810 100%);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.08);
+  overflow: hidden;
+  padding: 8px;
+}
+
+.swarm-svg-net {
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  display: block;
+}
+
+@keyframes beam-flow {
+  0% { stroke-dashoffset: 40; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes beam-flow-rev {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 40; }
+}
+
+@keyframes pulse-ring {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.08); }
+}
+
+.anim-beam-fast {
+  animation: beam-flow 1.5s linear infinite;
+}
+
+.anim-beam-rev {
+  animation: beam-flow-rev 1.8s linear infinite;
+}
+
+/* Agent Fleet Cards */
+.swarm-agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.agent-card {
+  background: #080d16;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.agent-card:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+.card-agy { border-left: 3px solid #38bdf8; }
+.card-opencode { border-left: 3px solid #a855f7; }
+.card-grok { border-left: 3px solid #f59e0b; }
+.card-freebuff { border-left: 3px solid #10b981; }
+
+.agent-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agent-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.badge-agy { color: #38bdf8; }
+.badge-opencode { color: #a855f7; }
+.badge-grok { color: #f59e0b; }
+.badge-freebuff { color: #10b981; }
+
+.status-indicator {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+}
+
+.status-live {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid #10b981;
+}
+
+.status-relayed {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid #f59e0b;
+}
+
+.agent-card-role {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.agent-card-focus {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: #04060a;
+  padding: 6px 8px;
+  border-radius: 3px;
+  border: 1px solid #162032;
+  overflow: hidden;
+}
+
+.focus-label {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.focus-link {
+  color: #38bdf8;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-link:hover {
+  text-decoration: underline;
+  color: #7dd3fc;
+}
+
+/* Swarm Task Matrix */
+.swarm-task-matrix {
+  background: #080d16;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.swarm-matrix-header {
+  padding: 10px 14px;
+  background: #0d1522;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+}
+
+.swarm-task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #111a29;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.swarm-task-row:last-child {
+  border-bottom: none;
+}
+
+.swarm-task-row:hover {
+  background: #0c1422;
+}
+
+.task-id-badge {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.task-st-done { color: #10b981; }
+.task-st-in_progress { color: #f59e0b; }
+.task-st-review { color: #a855f7; }
+.task-st-todo { color: #64748b; }
+
+.task-title-text {
+  flex: 1;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-agent-tag {
+  color: #38bdf8;
+  font-size: 10px;
+}
+

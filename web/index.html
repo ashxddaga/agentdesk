@@ -23,6 +23,7 @@
       <button class="tui-header-btn" id="btn-toggle-alerts" title="Toggle Sound &amp; Push Alerts">[ 🔔 ON ]</button>
       <button class="tui-header-btn" id="btn-open-launcher" title="Launch new agent in Herdr">[ + LAUNCH ]</button>
       <button class="tui-header-btn" id="btn-toggle-board" title="View AgentR task board">[ 📋 BOARD ]</button>
+      <button class="tui-header-btn" id="btn-toggle-swarm" title="View Multi-Agent Swarm Radar">[ 🛰️ SWARM ]</button>
       <div class="tui-status-tag" id="conn-status-tag">
         <div class="tui-dot" id="conn-dot"></div>
         <span id="conn-label">ONLINE</span>
@@ -91,6 +92,17 @@
       </div>
       <div id="sessions-list">
         <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- View 3: Swarm & Multi-Agent Radar -->
+    <section id="swarm-view" class="tui-view">
+      <div class="tui-section-header">
+        <span>⚡ MULTI-AGENT SWARM RADAR</span>
+        <span class="header-tag live-tag">COORDINATING</span>
+      </div>
+      <div id="swarm-container">
+        <div class="tui-empty-state">Connecting to AgentR Swarm Radar…</div>
       </div>
     </section>
   </main>
@@ -225,6 +237,7 @@
     <span><kbd>Esc</kbd> Close / Back</span>
     <span><kbd>1</kbd> Panes</span>
     <span><kbd>2</kbd> Sessions</span>
+    <span><kbd>3</kbd> Swarm</span>
     <span><kbd>+</kbd> Launch Agent</span>
     <span><kbd>b</kbd> Blackboard</span>
     <span><kbd>r</kbd> Refresh</span>
@@ -238,6 +251,9 @@
     </button>
     <button class="tui-nav-btn" data-view="sessions-view">
       <span>🔍 2:SESSIONS</span>
+    </button>
+    <button class="tui-nav-btn" data-view="swarm-view">
+      <span>🛰️ 3:SWARM</span>
     </button>
   </nav>
 

@@ -440,7 +440,23 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             # API: AgentR coordination board
             if path == "/api/board":
                 board = AGENTR.get_board()
+                try:
+                    from agentr.viz import get_swarm_graph_data
+                    board["swarm"] = get_swarm_graph_data("/home/ashish/Work")
+                except Exception:
+                    pass
                 self.send_json({"status": "ok", "board": board})
+                return
+
+            # API: AgentR multi-agent swarm topology & radar
+            if path in ("/api/swarm", "/api/viz"):
+                try:
+                    from agentr.viz import get_swarm_graph_data, render_html_widget
+                    data = get_swarm_graph_data("/home/ashish/Work")
+                    data["html_widget"] = render_html_widget(data)
+                    self.send_json({"status": "ok", "swarm": data})
+                except Exception as e:
+                    self.send_error_json(str(e), 500)
                 return
 
             # API: Real-time Server-Sent Events (SSE)
