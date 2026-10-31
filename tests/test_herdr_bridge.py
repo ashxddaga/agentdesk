@@ -48,6 +48,28 @@ class TestHerdrBridge(unittest.TestCase):
                 mock_call.assert_any_call("pane.send_text", {"pane_id": "p-1", "text": "hello world"})
                 mock_call.assert_any_call("pane.send_keys", {"pane_id": "p-1", "keys": ["enter"]})
 
+    def test_read_pane_socket_direct(self):
+        with patch.object(self.bridge, "is_available", return_value=True):
+            mock_resp = {
+                "type": "ok",
+                "read": {
+                    "pane_id": "p-1",
+                    "text": "Live streaming socket line\n",
+                    "revision": 42,
+                    "truncated": False,
+                }
+            }
+            with patch.object(self.bridge, "_call", return_value=mock_resp) as mock_call:
+                info = self.bridge.read_pane_info("p-1", lines=50)
+                self.assertEqual(info["text"], "Live streaming socket line\n")
+                self.assertEqual(info["revision"], 42)
+                mock_call.assert_called_once_with(
+                    "pane.read",
+                    {"pane_id": "p-1", "source": "recent_unwrapped", "lines": 50}
+                )
+                output = self.bridge.read_pane("p-1", lines=50)
+                self.assertIn("Live streaming socket line", output)
+
     @patch("agentdesk.herdr_bridge.subprocess.run")
     def test_kill_pane_interrupt(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")

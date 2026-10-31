@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.0] — 2026-10-31
+
+### 🚀 Live Streaming Terminal, Live Chat Stream & Vibrant Cockpit Ticker
+- **Issue & Symptom**:
+  User reported that AgentDesk felt static and required repeatedly closing and re-opening a chat or pane peek drawer to observe ongoing agent activity. The user requested live streaming output.
+- **Root Cause Analysis (RCA)**:
+  1. In `web/app.js`, `window.tuiPeek` only invoked `fetchPaneTerminal(paneId)` a single time when the drawer opened. No subsequent streaming loop or socket event listener ran while the modal remained open.
+  2. In `web/app.js`, `openSessionLog` loaded session details once on open without continuous polling, causing active chats and tool executions to appear frozen unless reopened.
+  3. `agentdesk/herdr_bridge.py` spawned a new `subprocess.run(["herdr", "pane", "read", ...])` on every read instead of using the Unix domain socket RPC (`pane.read`), adding ~250ms latency and omitting buffer revision tracking.
+  4. Cockpit cards on the main screen lacked real-time output previews, and duration badges only updated every 6 seconds on periodic SSE syncs.
+- **Fix & Implementation**:
+  1. **Direct Socket RPC & Revision Tracking (`agentdesk/herdr_bridge.py`)**:
+     - Added `read_pane_info(pane_id, lines)` utilizing Herdr socket RPC `pane.read` with `recent_unwrapped`, dropping read time to ~50ms and extracting buffer `revision` numbers.
+     - Implemented revision-based caching for `preview_line` in `get_snapshot()`, giving every active pane card an instant live console preview ticker.
+  2. **Real-Time Terminal SSE Streaming (`agentdesk/server.py`)**:
+     - Added dedicated SSE endpoint `GET /api/pane/<pane_id>/stream` that pushes instant `terminal_update` payloads whenever buffer `revision` or text changes.
+     - Updated `GET /api/pane/<pane_id>/read` to return `revision` alongside output text.
+  3. **Continuous Streaming Client & Auto-Scroll Engine (`web/app.js`)**:
+     - Connected `window.tuiPeek` to `/api/pane/<id>/stream` with a 700ms polling fallback for zero-interruption streaming.
+     - Implemented smart auto-scroll: auto-scrolls down as new output streams in; automatically pauses when user scrolls up to review history; resumes when scrolled back to bottom or when clicking `[ ⚡ AUTO-SCROLL: ON ]` / `[ ⬇ End ]`.
+     - Added real-time 1500ms live polling loop to `openSessionLog` with signature change detection, appending new turns and assistant tokens live.
+     - Added client-side 1-second interval ticking running durations smoothly second-by-second.
+  4. **Lively Visuals & Authentic TUI Aesthetics (`web/index.html`, `web/style.css`)**:
+     - Added pulsing live badges (`[ 🔴 LIVE ]` and `[ 🔴 LIVE CHAT ]`) with `@keyframes live-pulse`.
+     - Added `.pane-console-preview` with phosphor green monospace text and blinking cursor (`_`) on pane cards.
+     - Added working glow animation (`@keyframes working-glow`) for active panes.
+  5. **Android Parity (`agentdesk/android/`)**:
+     - Updated `Models.kt`, `AgentDeskClient.kt`, and `MainActivity.kt` with live preview snippets, `● LIVE` badges, and continuous 800ms / 1500ms auto-refresh loops.
+     - Rebuilt `AgentDesk-Android.zip` and mirrored to `web/`.
+- **Verification**:
+  - Added `test_read_pane_socket_direct` in `tests/test_herdr_bridge.py`.
+  - Added streaming endpoint and revision assertions in `tests/test_server.py`.
+  - Expanded `tests/test_e2e_browser.py` to verify console previews, live stream badge, auto-scroll button, and live chat badge.
+  - Ran `./run_tests.sh`: all 20 unit and browser E2E tests passing (20/20).
+- **Git Commit**: Multi-file commit on `main` branch.
+
+---
+
 ## [0.3.0] — 2026-10-29
 
 ### 🚀 Full Delivery: Phases 3, 4 & 5 (Remote Alerts, Lifecycle Control & Autonomous Supervision)

@@ -6,7 +6,8 @@ data class PaneInfo(
     val status: String,
     val title: String,
     val workspace: String,
-    val pid: String?
+    val pid: String?,
+    val previewLine: String = ""
 )
 
 data class WorkspaceInfo(

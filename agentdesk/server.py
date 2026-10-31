@@ -322,10 +322,25 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                 parts = path.strip("/").split("/")
                 if len(parts) >= 3:
                     pane_id = unquote(parts[2])
-                    lines_str = qs.get("lines", ["80"])[0]
-                    lines = int(lines_str) if lines_str.isdigit() else 80
-                    output = HERDR.read_pane(pane_id, lines=lines)
-                    self.send_json({"pane_id": pane_id, "output": output})
+                    lines_str = qs.get("lines", ["100"])[0]
+                    lines = int(lines_str) if lines_str.isdigit() else 100
+                    info = HERDR.read_pane_info(pane_id, lines=lines)
+                    self.send_json({
+                        "pane_id": pane_id,
+                        "output": info.get("text", ""),
+                        "revision": info.get("revision", 0),
+                        "truncated": info.get("truncated", False),
+                    })
+                    return
+
+            # API: Live terminal SSE stream for a specific pane
+            if path.startswith("/api/pane/") and path.endswith("/stream"):
+                parts = path.strip("/").split("/")
+                if len(parts) >= 3:
+                    pane_id = unquote(parts[2])
+                    lines_str = qs.get("lines", ["120"])[0]
+                    lines = int(lines_str) if lines_str.isdigit() else 120
+                    self.handle_pane_sse_stream(pane_id, lines=lines)
                     return
 
             # API: Unified recent sessions via AgentR
@@ -580,7 +595,7 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                     self.wfile.flush()
 
                 # Send periodic heartbeat or full sync with telemetry
-                if counter % 4 == 0:
+                if counter % 2 == 0:
                     for p in panes:
                         pid = p.get("pane_id")
                         if pid:
@@ -589,6 +604,56 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                     self.wfile.write(f"data: {sync_ev}\n\n".encode("utf-8"))
                     self.wfile.flush()
 
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+
+    def handle_pane_sse_stream(self, pane_id: str, lines: int = 120) -> None:
+        """Stream real-time terminal output updates for a specific pane."""
+        self.send_response(200)
+        self._send_cors()
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache, no-transform")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        info = HERDR.read_pane_info(pane_id, lines=lines)
+        last_rev = info.get("revision", -1)
+        last_text = info.get("text", "")
+
+        init_ev = json.dumps({
+            "type": "terminal_init",
+            "pane_id": pane_id,
+            "output": last_text,
+            "revision": last_rev,
+            "time": time.time(),
+        })
+        self.wfile.write(f"data: {init_ev}\n\n".encode("utf-8"))
+        self.wfile.flush()
+
+        counter = 0
+        try:
+            while True:
+                time.sleep(0.5)
+                counter += 1
+                curr = HERDR.read_pane_info(pane_id, lines=lines)
+                curr_rev = curr.get("revision", 0)
+                curr_text = curr.get("text", "")
+                if curr_rev != last_rev or curr_text != last_text:
+                    ev = json.dumps({
+                        "type": "terminal_update",
+                        "pane_id": pane_id,
+                        "output": curr_text,
+                        "revision": curr_rev,
+                        "time": time.time(),
+                    })
+                    self.wfile.write(f"data: {ev}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    last_rev = curr_rev
+                    last_text = curr_text
+                elif counter % 10 == 0:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 

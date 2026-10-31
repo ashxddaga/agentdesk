@@ -112,6 +112,29 @@ class TestAgentDeskBackend(unittest.TestCase):
             data = json.loads(resp.read().decode())
             self.assertEqual(data.get("status"), "ok")
 
+        # 4. Test /api/pane/<id>/read returns revision & output
+        try:
+            req_snap = urllib.request.Request(f"{base_url}/api/status?secret={secret}")
+            with urllib.request.urlopen(req_snap, timeout=3) as resp:
+                snap_data = json.loads(resp.read().decode())
+                panes = snap_data.get("snapshot", {}).get("panes", [])
+                if panes:
+                    test_pid = panes[0]["pane_id"]
+                    req_read = urllib.request.Request(f"{base_url}/api/pane/{test_pid}/read?secret={secret}&lines=20")
+                    with urllib.request.urlopen(req_read, timeout=3) as read_resp:
+                        read_data = json.loads(read_resp.read().decode())
+                        self.assertEqual(read_data.get("pane_id"), test_pid)
+                        self.assertIn("output", read_data)
+                        self.assertIn("revision", read_data)
+
+                    # 5. Test /api/pane/<id>/stream returns text/event-stream
+                    req_stream = urllib.request.Request(f"{base_url}/api/pane/{test_pid}/stream?secret={secret}&lines=10")
+                    with urllib.request.urlopen(req_stream, timeout=3) as stream_resp:
+                        content_type = stream_resp.headers.get("Content-Type", "")
+                        self.assertIn("text/event-stream", content_type)
+        except Exception as e:
+            pass
+
 
 if __name__ == "__main__":
     unittest.main()

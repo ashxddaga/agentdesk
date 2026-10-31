@@ -40,11 +40,11 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.agent_browser_bin = shutil.which("agent-browser")
-        if not cls.agent_browser_bin:
-            fallback = os.path.expanduser("~/.local/share/mise/installs/node/26.11.1/bin/agent-browser")
-            if os.path.exists(fallback):
-                cls.agent_browser_bin = fallback
+        direct_bin = os.path.expanduser("~/.local/share/mise/installs/node/26.11.1/bin/agent-browser")
+        if os.path.exists(direct_bin):
+            cls.agent_browser_bin = direct_bin
+        else:
+            cls.agent_browser_bin = shutil.which("agent-browser")
 
         if not cls.agent_browser_bin:
             raise unittest.SkipTest("agent-browser CLI not found on this machine")
@@ -90,10 +90,14 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         title_text = self.run_browser("get", "text", ".tui-title")
         self.assertIn("HERDR // agentdesk", title_text)
 
-        # 3. Assert pane cards are populated
+        # 3. Assert pane cards are populated with live console previews
         pane_count_str = self.run_browser("get", "count", ".pane-box")
         pane_count = int(pane_count_str) if pane_count_str.isdigit() else 0
         self.assertGreater(pane_count, 0, "Expected at least one pane card to be rendered")
+
+        preview_count_str = self.run_browser("get", "count", ".pane-console-preview")
+        preview_count = int(preview_count_str) if preview_count_str.isdigit() else 0
+        self.assertGreater(preview_count, 0, "Expected console preview ticker on cards")
 
         # 4. Test Alert Toggle button
         self.run_browser("click", "#btn-toggle-alerts")
@@ -119,7 +123,7 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("click", "#board-close-btn")
         self.run_browser("wait", "500")
 
-        # 7. Open peek drawer on a pane
+        # 7. Open peek drawer on a pane & verify live stream indicators
         peek_selector = 'div[data-pane-id="w7:p1"] button.primary'
         try:
             self.run_browser("click", peek_selector)
@@ -129,6 +133,12 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "1000")
         modal_title = self.run_browser("get", "text", "#terminal-pane-title")
         self.assertTrue(len(modal_title) > 0, "Terminal modal title should be displayed")
+
+        live_badge_text = self.run_browser("get", "text", "#terminal-live-badge")
+        self.assertIn("LIVE", live_badge_text.upper())
+
+        autoscroll_text = self.run_browser("get", "text", "#btn-toggle-autoscroll")
+        self.assertIn("AUTO-SCROLL", autoscroll_text.upper())
 
         # 8. Type a unique command into prompt box and click SEND
         probe_token = f"E2E_PROBE_{uuid.uuid4().hex[:8]}"
@@ -164,6 +174,14 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         session_count_str = self.run_browser("get", "count", ".session-entry")
         session_count = int(session_count_str) if session_count_str.isdigit() else 0
         self.assertGreater(session_count, 0, "Expected at least one session item in Sessions view")
+
+        # 13. Open a session log and verify live chat badge
+        self.run_browser("click", ".session-entry:first-child")
+        self.run_browser("wait", "1000")
+        chat_badge = self.run_browser("get", "text", "#session-live-badge")
+        self.assertIn("LIVE CHAT", chat_badge.upper())
+        self.run_browser("click", "#session-close-btn")
+        self.run_browser("wait", "500")
 
 
 if __name__ == "__main__":

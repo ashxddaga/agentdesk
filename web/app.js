@@ -21,6 +21,13 @@
   let selectedSession = null;
   let searchTimer = null;
   let eventSource = null;
+  let terminalEventSource = null;
+  let terminalPollTimer = null;
+  let autoScrollEnabled = true;
+  let terminalLastRevision = -1;
+  let terminalLastOutput = '';
+  let sessionPollTimer = null;
+  let sessionLastSignature = '';
   let audioCtx = null;
   let alertsEnabled = localStorage.getItem('agentdesk_alerts') !== 'false';
   let speechRecognition = null;
@@ -52,6 +59,8 @@
   // Terminal Drawer Elements
   const terminalModalOverlay = document.getElementById('terminal-modal-overlay');
   const terminalPaneTitle = document.getElementById('terminal-pane-title');
+  const terminalLiveBadge = document.getElementById('terminal-live-badge');
+  const btnToggleAutoScroll = document.getElementById('btn-toggle-autoscroll');
   const terminalStreamContent = document.getElementById('terminal-stream-content');
   const terminalCloseBtn = document.getElementById('terminal-close-btn');
   const btnDrawerKill = document.getElementById('btn-drawer-kill');
@@ -79,6 +88,8 @@
   // Session Details Modal
   const sessionDetailOverlay = document.getElementById('session-detail-overlay');
   const sessionModalTitle = document.getElementById('session-modal-title');
+  const sessionLiveBadge = document.getElementById('session-live-badge');
+  const btnSessionRefresh = document.getElementById('btn-session-refresh');
   const sessionModalBody = document.getElementById('session-modal-body');
   const sessionCloseBtn = document.getElementById('session-close-btn');
   const btnTuiTransfer = document.getElementById('btn-tui-transfer');
@@ -300,6 +311,7 @@
 
       // Status marker symbol
       const statusIcon = isWorking ? '●' : (isBlocked ? '▲' : (status === 'idle' ? '■' : '○'));
+      const workingPulse = isWorking ? ' ⟳' : '';
 
       // Telemetry badge
       const tel = p.telemetry;
@@ -312,6 +324,16 @@
         </div>
       ` : '';
 
+      // Live console ticker preview
+      const previewLine = p.preview_line || '';
+      const previewSnippet = previewLine ? `
+        <div class="pane-console-preview">
+          <span class="preview-prompt">&gt;</span>
+          <span class="preview-text">${escapeHtml(previewLine)}</span>
+          <span class="preview-cursor">_</span>
+        </div>
+      ` : '';
+
       return `
         <div class="pane-box ${isWorking ? 'is-working' : ''} ${isBlocked ? 'is-blocked' : ''}" data-pane-id="${pid}">
           <div class="pane-topbar">
@@ -320,13 +342,14 @@
               ${wsName ? `<span class="pane-ws-tag"> // ${escapeHtml(wsName)}</span>` : ''}
             </div>
             <span class="pane-agent-pill ${status}">
-              ${statusIcon} ${ag}: ${status}
+              ${statusIcon} ${ag}: ${status}${workingPulse}
             </span>
           </div>
           <div class="pane-body">
             <div class="pane-title">${escapeHtml(title)}</div>
             <div class="pane-meta">cwd: ${escapeHtml(cwd)}</div>
             ${telBadge}
+            ${previewSnippet}
           </div>
           <div class="pane-actions-bar">
             <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(ag)} // ${pid}')">&gt; PEEK</button>
@@ -372,40 +395,150 @@
   bannerRejectBtn.addEventListener('click', () => window.tuiInterrupt(blockedPaneId));
 
   // -------------------------------------------------------------------------
-  // Terminal Drawer & Process Kill
+  // Terminal Drawer & Live Streaming (Phase 3 & Live Streaming Delivery)
   // -------------------------------------------------------------------------
-  window.tuiPeek = function(paneId, title = 'TERMINAL') {
-    activeTerminalPaneId = paneId;
-    terminalPaneTitle.textContent = title;
-    terminalStreamContent.textContent = '> attaching to pane stream...';
-    terminalModalOverlay.style.display = 'block';
-
-    fetchPaneTerminal(paneId);
-  };
-
-  async function fetchPaneTerminal(paneId) {
-    try {
-      const res = await api(`/api/pane/${encodeURIComponent(paneId)}/read`, { params: { lines: 100 } });
-      terminalStreamContent.textContent = res.output || '(empty buffer)';
-      terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
-    } catch (err) {
-      terminalStreamContent.textContent = `! Read error: ${err.message}`;
+  function updateAutoScrollUI() {
+    if (!btnToggleAutoScroll) return;
+    if (autoScrollEnabled) {
+      btnToggleAutoScroll.textContent = '[ ⚡ AUTO-SCROLL: ON ]';
+      btnToggleAutoScroll.classList.remove('paused');
+    } else {
+      btnToggleAutoScroll.textContent = '[ ⚡ AUTO-SCROLL: PAUSED ]';
+      btnToggleAutoScroll.classList.add('paused');
     }
   }
 
-  terminalCloseBtn.addEventListener('click', () => {
-    terminalModalOverlay.style.display = 'none';
-    activeTerminalPaneId = null;
+  if (btnToggleAutoScroll) {
+    btnToggleAutoScroll.addEventListener('click', () => {
+      autoScrollEnabled = !autoScrollEnabled;
+      updateAutoScrollUI();
+      if (autoScrollEnabled) {
+        terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
+      }
+    });
+  }
+
+  // Detect manual user scrolling in terminal box to pause/resume auto-scroll
+  terminalStreamContent.addEventListener('scroll', () => {
+    const fromBottom = terminalStreamContent.scrollHeight - terminalStreamContent.scrollTop - terminalStreamContent.clientHeight;
+    if (fromBottom > 50) {
+      if (autoScrollEnabled) {
+        autoScrollEnabled = false;
+        updateAutoScrollUI();
+      }
+    } else if (fromBottom <= 10) {
+      if (!autoScrollEnabled) {
+        autoScrollEnabled = true;
+        updateAutoScrollUI();
+      }
+    }
   });
+
+  function updateTerminalOutput(text, revision) {
+    if (text === terminalLastOutput) return;
+    terminalLastOutput = text;
+    terminalLastRevision = revision !== undefined ? revision : terminalLastRevision;
+    terminalStreamContent.textContent = text || '(empty buffer)';
+    if (autoScrollEnabled) {
+      terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
+    }
+  }
+
+  async function fetchPaneTerminal(paneId, silent = false) {
+    try {
+      const res = await api(`/api/pane/${encodeURIComponent(paneId)}/read`, { params: { lines: 120 } });
+      if (res && res.output !== undefined) {
+        updateTerminalOutput(res.output, res.revision);
+      }
+    } catch (err) {
+      if (!silent) {
+        terminalStreamContent.textContent = `! Read error: ${err.message}`;
+      }
+    }
+  }
+
+  function startTerminalLiveStream(paneId) {
+    closeActiveTerminalStream();
+
+    // 1. Initial fast read
+    fetchPaneTerminal(paneId, false);
+
+    // 2. Real-time Server-Sent Events stream
+    try {
+      const sseUrl = getUrl(`/api/pane/${encodeURIComponent(paneId)}/stream`);
+      terminalEventSource = new EventSource(sseUrl);
+
+      terminalEventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && data.output !== undefined) {
+            updateTerminalOutput(data.output, data.revision);
+          }
+        } catch (e) {}
+      };
+
+      terminalEventSource.onerror = () => {
+        if (terminalEventSource) {
+          try { terminalEventSource.close(); } catch (e) {}
+          terminalEventSource = null;
+        }
+      };
+    } catch (e) {
+      console.warn('SSE terminal stream failed to init', e);
+    }
+
+    // 3. Fallback continuous polling interval (every 700ms)
+    // Guarantees zero missed output even if network proxies buffer SSE
+    terminalPollTimer = setInterval(() => {
+      if (activeTerminalPaneId === paneId) {
+        fetchPaneTerminal(paneId, true);
+      }
+    }, 700);
+  }
+
+  function closeActiveTerminalStream() {
+    if (terminalEventSource) {
+      try { terminalEventSource.close(); } catch (e) {}
+      terminalEventSource = null;
+    }
+    if (terminalPollTimer) {
+      clearInterval(terminalPollTimer);
+      terminalPollTimer = null;
+    }
+  }
+
+  window.tuiPeek = function(paneId, title = 'TERMINAL') {
+    closeActiveTerminalStream();
+    activeTerminalPaneId = paneId;
+    terminalLastRevision = -1;
+    terminalLastOutput = '';
+    autoScrollEnabled = true;
+    updateAutoScrollUI();
+
+    terminalPaneTitle.textContent = title;
+    terminalStreamContent.textContent = '> connecting live pane stream...';
+    terminalModalOverlay.style.display = 'block';
+
+    startTerminalLiveStream(paneId);
+  };
+
+  function closeTerminalModal() {
+    terminalModalOverlay.style.display = 'none';
+    closeActiveTerminalStream();
+    activeTerminalPaneId = null;
+  }
+
+  terminalCloseBtn.addEventListener('click', closeTerminalModal);
 
   terminalModalOverlay.addEventListener('click', (e) => {
     if (e.target === terminalModalOverlay) {
-      terminalModalOverlay.style.display = 'none';
-      activeTerminalPaneId = null;
+      closeTerminalModal();
     }
   });
 
   btnTuiScroll.addEventListener('click', () => {
+    autoScrollEnabled = true;
+    updateAutoScrollUI();
     terminalStreamContent.scrollTop = terminalStreamContent.scrollHeight;
   });
 
@@ -781,17 +914,50 @@
   });
 
   // -------------------------------------------------------------------------
-  // Session Transcript Log & Agent Handoff Modal
+  // Session Transcript Log & Live Chat Streaming (Phase 5 Delivery)
   // -------------------------------------------------------------------------
+  function stopSessionLiveStream() {
+    if (sessionPollTimer) {
+      clearInterval(sessionPollTimer);
+      sessionPollTimer = null;
+    }
+  }
+
   async function openSessionLog(agent, cid) {
+    stopSessionLiveStream();
     selectedSession = { agent, cid };
+    sessionLastSignature = '';
     sessionModalTitle.textContent = `LOG // ${agent.toUpperCase()} // ${cid.slice(0, 12)}…`;
     sessionModalBody.innerHTML = '<div style="color:var(--text-muted); padding:16px;">[ parsing transcript... ]</div>';
     sessionDetailOverlay.style.display = 'block';
 
+    // 1. Initial immediate fetch
+    await fetchSessionDetails(agent, cid, false);
+
+    // 2. Real-time auto-streaming loop (polls every 1500ms)
+    // Seamlessly detects newly added turns or streaming assistant tokens
+    sessionPollTimer = setInterval(() => {
+      if (selectedSession && selectedSession.agent === agent && selectedSession.cid === cid) {
+        fetchSessionDetails(agent, cid, true);
+      }
+    }, 1500);
+  }
+
+  async function fetchSessionDetails(agent, cid, isLiveUpdate = false) {
     try {
       const res = await api('/api/sessions/details', { params: { agent, cid } });
       const d = res.details || {};
+      const prompts = d.user_prompts || [];
+      const msgs = d.assistant_msgs || [];
+      const count = Math.max(prompts.length, msgs.length);
+      const lastMsg = msgs[msgs.length - 1] || '';
+      const sig = `${count}-${lastMsg.length}-${prompts.length}`;
+
+      if (isLiveUpdate && sig === sessionLastSignature) {
+        return; // No changes in transcript
+      }
+      sessionLastSignature = sig;
+
       let html = `
         <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);">
           <div style="color:var(--blue); font-size:14px; font-weight:700;">${escapeHtml(d.title)}</div>
@@ -800,10 +966,6 @@
           </div>
         </div>
       `;
-
-      const prompts = d.user_prompts || [];
-      const msgs = d.assistant_msgs || [];
-      const count = Math.max(prompts.length, msgs.length);
 
       for (let i = 0; i < count; i++) {
         if (prompts[i]) {
@@ -825,22 +987,38 @@
       }
 
       sessionModalBody.innerHTML = html;
+      if (isLiveUpdate) {
+        sessionModalBody.scrollTop = sessionModalBody.scrollHeight;
+      }
     } catch (err) {
-      sessionModalBody.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
+      if (!isLiveUpdate) {
+        sessionModalBody.innerHTML = `<div style="color:var(--red); padding:16px;">! Error: ${err.message}</div>`;
+      }
     }
   }
 
-  sessionCloseBtn.addEventListener('click', () => {
+  function closeSessionModal() {
     sessionDetailOverlay.style.display = 'none';
+    stopSessionLiveStream();
     selectedSession = null;
-  });
+  }
+
+  sessionCloseBtn.addEventListener('click', closeSessionModal);
 
   sessionDetailOverlay.addEventListener('click', (e) => {
     if (e.target === sessionDetailOverlay) {
-      sessionDetailOverlay.style.display = 'none';
-      selectedSession = null;
+      closeSessionModal();
     }
   });
+
+  if (btnSessionRefresh) {
+    btnSessionRefresh.addEventListener('click', () => {
+      if (selectedSession) {
+        fetchSessionDetails(selectedSession.agent, selectedSession.cid, false);
+        showToast('✓ TRANSCRIPT SYNCED');
+      }
+    });
+  }
 
   btnTuiTransfer.addEventListener('click', async () => {
     if (!selectedSession) return;
@@ -932,6 +1110,27 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  // Live 1-second ticking duration for working pane badges (makes UI feel truly alive)
+  setInterval(() => {
+    document.querySelectorAll('.pane-box.is-working').forEach(box => {
+      const telSpan = box.querySelector('.pane-telemetry-badge span:first-child');
+      if (telSpan && telSpan.textContent.startsWith('⏱️')) {
+        const text = telSpan.textContent.replace('⏱️', '').trim();
+        const parts = text.split(' ');
+        let totalSecs = 0;
+        parts.forEach(p => {
+          if (p.endsWith('m')) totalSecs += parseInt(p) * 60;
+          if (p.endsWith('s')) totalSecs += parseInt(p);
+        });
+        totalSecs += 1;
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        const durStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        telSpan.textContent = `⏱️ ${durStr}`;
+      }
+    });
+  }, 1000);
 
   // Register PWA Service Worker
   if ('serviceWorker' in navigator) {

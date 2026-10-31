@@ -81,7 +81,8 @@ class AgentDeskClient(
                     status = p.optString("agent_status", "idle"),
                     title = p.optString("terminal_title_stripped").ifEmpty { p.optString("terminal_title", "") },
                     workspace = p.optString("workspace_name"),
-                    pid = p.optString("pid", null)
+                    pid = p.optString("pid", null),
+                    previewLine = p.optString("preview_line", "")
                 )
             )
         }

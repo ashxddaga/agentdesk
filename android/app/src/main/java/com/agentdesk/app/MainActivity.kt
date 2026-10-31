@@ -563,6 +563,24 @@ fun HerdrTerminalCard(
             fontSize = 11.sp
         )
 
+        if (pane.previewLine.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Surface(
+                color = Color(0xFF030508),
+                shape = RoundedCornerShape(3.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E283A))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(">", color = HerdrCyan, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(pane.previewLine, color = Color(0xFF86EFAC), fontFamily = FontFamily.Monospace, fontSize = 10.sp, maxLines = 1)
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         // Terminal Action Buttons
@@ -642,6 +660,14 @@ fun TerminalPeekDialog(
     var inputText by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
+    // Real-time live streaming loop: refresh output every 800ms
+    LaunchedEffect(pane.paneId) {
+        while (true) {
+            kotlinx.coroutines.delay(800)
+            onRefreshOutput()
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onClose,
         modifier = Modifier.fillMaxWidth(0.96f),
@@ -661,13 +687,23 @@ fun TerminalPeekDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${pane.agent} // ${pane.paneId}",
-                        color = HerdrCyan,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${pane.agent} // ${pane.paneId}",
+                            color = HerdrCyan,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "● LIVE",
+                            color = HerdrRed,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
                     Surface(
                         color = Color.Transparent,
                         shape = RoundedCornerShape(3.dp),
@@ -971,13 +1007,23 @@ fun SessionDetailDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "[ ${session.agent.uppercase()} SESSION ]",
-                        color = HerdrCyan,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "[ ${session.agent.uppercase()} SESSION ]",
+                            color = HerdrCyan,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "● LIVE CHAT",
+                            color = HerdrRed,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
                     Surface(
                         color = Color.Transparent,
                         shape = RoundedCornerShape(3.dp),

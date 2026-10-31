@@ -17,6 +17,7 @@ DEFAULT_SOCK = os.path.expanduser("~/.config/herdr/herdr.sock")
 class HerdrBridge:
     def __init__(self, sock_path: str = DEFAULT_SOCK):
         self.sock_path = sock_path
+        self._preview_cache: Dict[str, Any] = {}
 
     def is_available(self) -> bool:
         return os.path.exists(self.sock_path)
@@ -54,23 +55,22 @@ class HerdrBridge:
             raise RuntimeError(f"Herdr error {err.get('code')}: {err.get('message')}")
         return parsed.get("result", {})
 
-    def get_snapshot(self) -> Dict[str, Any]:
-        """Fetch current session snapshot: workspaces, tabs, panes, and agents."""
-        if not self.is_available():
-            return {"error": "Herdr socket not found at " + self.sock_path, "agents": [], "panes": []}
-        try:
-            res = self._call("session.snapshot")
-            return res.get("snapshot", res)
-        except Exception as e:
-            # Fallback to CLI
+    def read_pane_info(self, pane_id: str, lines: int = 100) -> Dict[str, Any]:
+        """Read recent unwrapped terminal output with revision metadata via socket RPC or CLI."""
+        if self.is_available():
             try:
-                out = subprocess.run(["herdr", "status", "server"], capture_output=True, text=True, timeout=3)
-                return {"status": out.stdout.strip(), "error": str(e), "panes": []}
+                res = self._call("pane.read", {"pane_id": pane_id, "source": "recent_unwrapped", "lines": lines})
+                read_obj = res.get("read", {})
+                if isinstance(read_obj, dict) and "text" in read_obj:
+                    return {
+                        "text": read_obj["text"],
+                        "revision": read_obj.get("revision", 0),
+                        "truncated": read_obj.get("truncated", False),
+                    }
             except Exception:
-                return {"error": str(e), "panes": [], "agents": []}
+                pass
 
-    def read_pane(self, pane_id: str, lines: int = 100) -> str:
-        """Read recent unwrapped terminal output from a pane."""
+        # Fallback to CLI
         try:
             res = subprocess.run(
                 ["herdr", "pane", "read", pane_id, "--source", "recent-unwrapped", "--lines", str(lines)],
@@ -79,10 +79,54 @@ class HerdrBridge:
                 timeout=3,
             )
             if res.returncode == 0:
-                return res.stdout
-            return res.stderr or f"Error reading pane {pane_id}"
+                return {"text": res.stdout, "revision": 0, "truncated": False}
+            return {"text": res.stderr or f"Error reading pane {pane_id}", "revision": 0, "truncated": False}
         except Exception as e:
-            return f"Failed to read pane: {e}"
+            return {"text": f"Failed to read pane: {e}", "revision": 0, "truncated": False}
+
+    def read_pane(self, pane_id: str, lines: int = 100) -> str:
+        """Read recent unwrapped terminal output from a pane."""
+        return self.read_pane_info(pane_id, lines=lines).get("text", "")
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        """Fetch current session snapshot: workspaces, tabs, panes, agents, and live preview lines."""
+        if not self.is_available():
+            return {"error": "Herdr socket not found at " + self.sock_path, "agents": [], "panes": []}
+        try:
+            res = self._call("session.snapshot")
+            snap = res.get("snapshot", res)
+            panes = snap.get("panes", [])
+
+            # Enrich panes with cached live console preview lines
+            for p in panes:
+                pid = p.get("pane_id")
+                rev = p.get("revision", 0)
+                if not pid:
+                    continue
+                cached = self._preview_cache.get(pid)
+                if cached and cached[0] == rev:
+                    p["preview_line"] = cached[1]
+                else:
+                    preview_line = ""
+                    try:
+                        read_res = self._call("pane.read", {"pane_id": pid, "source": "recent_unwrapped", "lines": 4})
+                        txt = read_res.get("read", {}).get("text", "")
+                        lines = [l.strip() for l in txt.splitlines() if l.strip()]
+                        if lines:
+                            preview_line = lines[-1][:120]
+                    except Exception:
+                        preview_line = p.get("terminal_title_stripped") or p.get("terminal_title") or ""
+                    self._preview_cache[pid] = (rev, preview_line)
+                    p["preview_line"] = preview_line
+
+            return snap
+        except Exception as e:
+            # Fallback to CLI
+            try:
+                out = subprocess.run(["herdr", "status", "server"], capture_output=True, text=True, timeout=3)
+                return {"status": out.stdout.strip(), "error": str(e), "panes": []}
+            except Exception:
+                return {"error": str(e), "panes": [], "agents": []}
 
     def send_input(self, pane_id: str, text: str, submit: bool = True) -> bool:
         """Send text or approval command to a pane.

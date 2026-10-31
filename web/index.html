@@ -88,8 +88,12 @@
   <div class="terminal-modal-overlay" id="terminal-modal-overlay">
     <div class="terminal-modal-frame" id="terminal-modal-frame">
       <div class="tui-drawer-header">
-        <span class="tui-drawer-title" id="terminal-pane-title">TERMINAL // w3:p8</span>
+        <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+          <span class="tui-drawer-title" id="terminal-pane-title">TERMINAL // w3:p8</span>
+          <div class="live-stream-badge" id="terminal-live-badge"><span class="live-stream-dot"></span> LIVE</div>
+        </div>
         <div class="drawer-header-actions">
+          <button class="tui-btn-action" id="btn-toggle-autoscroll" title="Toggle Auto-Scroll">[ ⚡ AUTO-SCROLL: ON ]</button>
           <button class="tui-btn-kill" id="btn-drawer-kill" title="Emergency stop process">[ 🛑 KILL ]</button>
           <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
         </div>
@@ -181,8 +185,14 @@
   <div class="terminal-modal-overlay" id="session-detail-overlay">
     <div class="terminal-modal-frame" id="session-detail-frame">
       <div class="tui-drawer-header">
-        <span class="tui-drawer-title" id="session-modal-title">SESSION LOG</span>
-        <button class="tui-btn-close" id="session-close-btn">[ CLOSE ]</button>
+        <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+          <span class="tui-drawer-title" id="session-modal-title">SESSION LOG</span>
+          <div class="live-stream-badge" id="session-live-badge"><span class="live-stream-dot"></span> LIVE CHAT</div>
+        </div>
+        <div class="drawer-header-actions">
+          <button class="tui-btn-action" id="btn-session-refresh" title="Refresh Transcript">[ 🔄 REFRESH ]</button>
+          <button class="tui-btn-close" id="session-close-btn">[ CLOSE ]</button>
+        </div>
       </div>
       <div class="terminal-stream-box" id="session-modal-body" style="background:#080a0f;">
         Loading transcript…
