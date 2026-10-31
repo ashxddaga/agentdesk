@@ -12,5 +12,5 @@ python3 -m unittest discover tests -v
 
 echo ""
 echo "============================================================"
-echo "✅ ALL 20 UNIT & E2E BROWSER TESTS PASSED!"
+echo "✅ ALL UNIT & E2E BROWSER TESTS PASSED!"
 echo "============================================================"

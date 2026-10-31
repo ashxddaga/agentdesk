@@ -207,6 +207,71 @@ class AutonomousWatchdog:
 WATCHDOG = AutonomousWatchdog(HERDR, AGENTR)
 
 
+SESSION_DETAILS_CACHE: Dict[str, Dict[str, Any]] = {}
+SESSION_DETAILS_TIME = 0.0
+
+
+def get_enriched_snapshot() -> Dict[str, Any]:
+    global SESSION_DETAILS_CACHE, SESSION_DETAILS_TIME
+    snap = HERDR.get_snapshot()
+    panes = snap.get("panes", [])
+    now = time.time()
+
+    # Refresh session mapping cache every 4 seconds
+    if now - SESSION_DETAILS_TIME > 4.0 or not SESSION_DETAILS_CACHE:
+        try:
+            sessions = AGENTR.list_sessions(limit=50)
+            new_cache: Dict[str, Dict[str, Any]] = {}
+            for s in sessions:
+                cid = s.get("cid")
+                if cid:
+                    new_cache[cid] = {
+                        "title": s.get("title", ""),
+                        "snippet": s.get("snippet", ""),
+                        "agent": s.get("agent", ""),
+                        "workdir": s.get("workdir", ""),
+                    }
+            SESSION_DETAILS_CACHE = new_cache
+            SESSION_DETAILS_TIME = now
+        except Exception:
+            pass
+
+    for p in panes:
+        pid = p.get("pane_id")
+        if not pid:
+            continue
+        p["telemetry"] = WATCHDOG.get_telemetry(pid)
+
+        sess_obj = p.get("agent_session") or {}
+        cid = sess_obj.get("value")
+        chat_title = None
+        last_context = ""
+
+        if cid and cid in SESSION_DETAILS_CACHE:
+            s_info = SESSION_DETAILS_CACHE[cid]
+            chat_title = s_info.get("title")
+            last_context = s_info.get("snippet")
+
+        if not chat_title:
+            ws_label = p.get("workspace_name")
+            ag = p.get("agent") or p.get("display_agent")
+            raw_title = p.get("terminal_title_stripped") or p.get("terminal_title") or ""
+            if "@" in raw_title and ":" in raw_title:
+                path_part = raw_title.split(":", 1)[1]
+                chat_title = f"Terminal ({path_part})"
+            elif raw_title and raw_title not in ("zsh", "bash"):
+                chat_title = raw_title
+            elif ag and ws_label:
+                chat_title = f"{ag.upper()} in {ws_label}"
+            else:
+                chat_title = f"Pane {pid}"
+
+        p["chat_title"] = chat_title
+        p["last_context"] = last_context
+
+    return snap
+
+
 class AgentDeskHandler(BaseHTTPRequestHandler):
     server_version = "AgentDesk/0.1.0"
 
@@ -285,14 +350,9 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                 self.send_error_json("Unauthorized: valid ?secret= required", 401)
                 return
 
-            # API: Real-time Herdr snapshot enriched with watchdog metrics
+            # API: Real-time Herdr snapshot enriched with watchdog metrics and chat titles
             if path in ("/api/status", "/snapshot.json"):
-                snap = HERDR.get_snapshot()
-                panes = snap.get("panes", [])
-                for p in panes:
-                    pid = p.get("pane_id")
-                    if pid:
-                        p["telemetry"] = WATCHDOG.get_telemetry(pid)
+                snap = get_enriched_snapshot()
                 self.send_json({
                     "status": "ok",
                     "snapshot": snap,
@@ -505,6 +565,20 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "killed": ok})
             return
 
+        # API: Close a terminal pane in Herdr
+        if path == "/api/pane/close" or (path.startswith("/api/pane/") and path.endswith("/close")):
+            pane_id = body.get("pane_id")
+            if not pane_id and path.startswith("/api/pane/"):
+                pane_id = path.strip("/").split("/")[2]
+            if pane_id:
+                pane_id = unquote(pane_id)
+            if not pane_id:
+                self.send_error_json("Missing 'pane_id'")
+                return
+            ok = HERDR.kill_pane(pane_id, close=True)
+            self.send_json({"status": "ok" if ok else "failed", "pane_id": pane_id, "closed": ok})
+            return
+
         # API: AgentR board task update
         if path == "/api/board/task/update":
             tid = body.get("id", "")
@@ -552,7 +626,7 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         # Send initial connection event + snapshot
-        init_event = json.dumps({"type": "init", "time": time.time(), "snapshot": HERDR.get_snapshot()})
+        init_event = json.dumps({"type": "init", "time": time.time(), "snapshot": get_enriched_snapshot()})
         self.wfile.write(f"data: {init_event}\n\n".encode("utf-8"))
         self.wfile.flush()
 
@@ -563,7 +637,7 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             while True:
                 time.sleep(1.5)
                 counter += 1
-                snap = HERDR.get_snapshot()
+                snap = get_enriched_snapshot()
                 agents = snap.get("agents", [])
                 panes = snap.get("panes", [])
 

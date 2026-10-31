@@ -69,18 +69,19 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
             raise RuntimeError(f"agent-browser failed ({res.returncode}): {res.stderr}\n{res.stdout}")
         return res.stdout.strip()
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         try:
-            subprocess.run([self.agent_browser_bin, "close", "--all"], capture_output=True, timeout=5)
+            subprocess.run([cls.agent_browser_bin, "close", "--all"], capture_output=True, timeout=5)
         except Exception:
             pass
 
     def test_mobile_cockpit_full_flow(self):
         url = f"{self.base_url}/?secret={self.secret}"
 
-        # 1. Set mobile viewport and navigate
-        self.run_browser("set", "viewport", "412", "915")
+        # 1. Open and set mobile viewport
         self.run_browser("open", url)
+        self.run_browser("set", "viewport", "412", "915")
         self.run_browser("wait", "1500")
 
         # 2. Assert connection status & title
@@ -182,6 +183,51 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.assertIn("LIVE CHAT", chat_badge.upper())
         self.run_browser("click", "#session-close-btn")
         self.run_browser("wait", "500")
+
+    def test_desktop_terminal_experience_and_shortcuts(self):
+        url = f"{self.base_url}/?secret={self.secret}"
+
+        # 1. Open and set desktop viewport (1280x800)
+        self.run_browser("open", url)
+        self.run_browser("set", "viewport", "1280", "800")
+        self.run_browser("wait", "1500")
+
+        # 2. Check desktop shortcut bar is visible
+        shortcut_bar_text = self.run_browser("get", "text", "#desktop-shortcut-bar")
+        self.assertIn("ESC", shortcut_bar_text.upper())
+        self.assertIn("Panes", shortcut_bar_text)
+        self.assertIn("Sessions", shortcut_bar_text)
+
+        # 3. Check sort select dropdown exists and defaults to attention
+        sort_val = self.run_browser("get", "value", "#select-pane-sort")
+        self.assertEqual(sort_val, "attention")
+
+        # 4. Check pane cards show chat title and close action button
+        chat_title_count = int(self.run_browser("get", "count", ".pane-chat-title"))
+        self.assertGreater(chat_title_count, 0)
+        close_btn_count = int(self.run_browser("get", "count", "button.btn-tui-action.close"))
+        self.assertGreater(close_btn_count, 0)
+
+        # 5. Open terminal peek modal
+        self.run_browser("click", ".pane-box:first-child button.primary")
+        self.run_browser("wait", "1000")
+        self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "true")
+        self.assertEqual(self.run_browser("is", "visible", "#btn-drawer-close-pane"), "true")
+
+        # 6. Test Esc key to close terminal modal and return to main dashboard
+        self.run_browser("press", "Escape")
+        self.run_browser("wait", "600")
+        self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "false")
+
+        # 7. Test desktop shortcut '2' to switch to Sessions view
+        self.run_browser("press", "2")
+        self.run_browser("wait", "1200")
+        self.assertEqual(self.run_browser("is", "visible", "#sessions-view"), "true")
+
+        # 8. Test Esc key on Sessions view returns to main Panes dashboard
+        self.run_browser("press", "Escape")
+        self.run_browser("wait", "600")
+        self.assertEqual(self.run_browser("is", "visible", "#panes-view"), "true")
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@
   let terminalLastOutput = '';
   let sessionPollTimer = null;
   let sessionLastSignature = '';
+  let activeSortMode = localStorage.getItem('agentdesk_sort') || 'attention';
   let audioCtx = null;
   let alertsEnabled = localStorage.getItem('agentdesk_alerts') !== 'false';
   let speechRecognition = null;
@@ -45,6 +46,7 @@
   const bannerRejectBtn = document.getElementById('banner-reject-btn');
   const panesContainer = document.getElementById('panes-container');
   const btnRefresh = document.getElementById('btn-refresh');
+  const selectPaneSort = document.getElementById('select-pane-sort');
 
   // Header Tools
   const btnToggleAlerts = document.getElementById('btn-toggle-alerts');
@@ -64,6 +66,7 @@
   const terminalStreamContent = document.getElementById('terminal-stream-content');
   const terminalCloseBtn = document.getElementById('terminal-close-btn');
   const btnDrawerKill = document.getElementById('btn-drawer-kill');
+  const btnDrawerClosePane = document.getElementById('btn-drawer-close-pane');
   const tuiPromptChips = document.querySelectorAll('#tui-prompt-chips .prompt-chip');
   const tuiInputBox = document.getElementById('tui-input-box');
   const btnVoiceDictate = document.getElementById('btn-voice-dictate');
@@ -211,20 +214,32 @@
   }
 
   // -------------------------------------------------------------------------
-  // Bottom Navigation Switching
+  // View Navigation & Sorting Controls
   // -------------------------------------------------------------------------
+  function switchToView(targetId) {
+    document.querySelectorAll('.tui-nav-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-view') === targetId);
+    });
+    document.querySelectorAll('.tui-view').forEach(v => {
+      v.classList.toggle('active', v.id === targetId);
+    });
+    if (targetId === 'sessions-view') loadSessions();
+  }
+
   document.querySelectorAll('.tui-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tui-nav-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tui-view').forEach(v => v.classList.remove('active'));
-      btn.classList.add('active');
-      const targetId = btn.getAttribute('data-view');
-      const targetView = document.getElementById(targetId);
-      if (targetView) targetView.classList.add('active');
-
-      if (targetId === 'sessions-view') loadSessions();
+      switchToView(btn.getAttribute('data-view'));
     });
   });
+
+  if (selectPaneSort) {
+    selectPaneSort.value = activeSortMode;
+    selectPaneSort.addEventListener('change', () => {
+      activeSortMode = selectPaneSort.value;
+      localStorage.setItem('agentdesk_sort', activeSortMode);
+      if (currentSnapshot) renderSnapshot(currentSnapshot);
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Render Workspace Filter Strip
@@ -298,12 +313,46 @@
     const wsMap = {};
     workspaces.forEach(w => { wsMap[w.workspace_id] = w.label || `#${w.number}`; });
 
+    // Priority scoring for attention-first sorting (Blocked & Done on top)
+    function getStatusPriority(status) {
+      switch ((status || '').toLowerCase()) {
+        case 'blocked': return 100;
+        case 'done': return 80;
+        case 'working': return 60;
+        case 'idle': return 40;
+        default: return 20;
+      }
+    }
+
+    // Sort panes based on activeSortMode
+    filteredPanes.sort((a, b) => {
+      if (activeSortMode === 'attention') {
+        const pDiff = getStatusPriority(b.agent_status) - getStatusPriority(a.agent_status);
+        if (pDiff !== 0) return pDiff;
+        return (b.revision || 0) - (a.revision || 0);
+      } else if (activeSortMode === 'status') {
+        const order = { 'working': 1, 'blocked': 2, 'done': 3, 'idle': 4 };
+        const oA = order[(a.agent_status || '').toLowerCase()] || 9;
+        const oB = order[(b.agent_status || '').toLowerCase()] || 9;
+        return oA - oB;
+      } else if (activeSortMode === 'workspace') {
+        return (a.workspace_id || '').localeCompare(b.workspace_id || '');
+      } else if (activeSortMode === 'name') {
+        const nA = a.chat_title || a.terminal_title_stripped || a.pane_id;
+        const nB = b.chat_title || b.terminal_title_stripped || b.pane_id;
+        return nA.localeCompare(nB);
+      }
+      return 0;
+    });
+
     panesContainer.innerHTML = filteredPanes.map(p => {
       const pid = p.pane_id;
       const ag = (p.agent || p.display_agent || 'terminal').toLowerCase();
       const status = p.agent_status || 'unknown';
       const wsName = wsMap[p.workspace_id] || p.workspace_id || '';
-      const title = p.terminal_title_stripped || p.terminal_title || `Pane ${pid}`;
+      const rawTitle = p.terminal_title_stripped || p.terminal_title || `Pane ${pid}`;
+      const chatTitle = p.chat_title || rawTitle;
+      const chatIcon = p.chat_title ? '💬' : '⚡';
       const cwd = (p.foreground_cwd || p.cwd || '~').replace('/home/ashish', '~');
 
       const isWorking = status === 'working';
@@ -321,6 +370,15 @@
           <span>⏱️ ${tel.duration_str || '0s'}</span>
           <span>• ${tel.turns || 0} turns</span>
           <span>• ~${Math.round((tel.estimated_tokens || 0) / 1000)}k tok</span>
+        </div>
+      ` : '';
+
+      // Live context prompt/message
+      const lastCtx = p.last_context || p.last_user_prompt || '';
+      const contextSnippet = lastCtx ? `
+        <div class="pane-context-msg">
+          <span class="context-tag user">[PROMPT]:</span>
+          <span class="context-text">${escapeHtml(lastCtx)}</span>
         </div>
       ` : '';
 
@@ -346,20 +404,43 @@
             </span>
           </div>
           <div class="pane-body">
-            <div class="pane-title">${escapeHtml(title)}</div>
+            <div class="pane-chat-title">
+              <span class="chat-icon">${chatIcon}</span>
+              <span>${escapeHtml(chatTitle)}</span>
+            </div>
+            ${chatTitle !== rawTitle && rawTitle ? `<div class="pane-meta" style="font-size:10px; opacity:0.8; margin-bottom:2px;">tty: ${escapeHtml(rawTitle)}</div>` : ''}
             <div class="pane-meta">cwd: ${escapeHtml(cwd)}</div>
             ${telBadge}
+            ${contextSnippet}
             ${previewSnippet}
           </div>
           <div class="pane-actions-bar">
-            <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(ag)} // ${pid}')">&gt; PEEK</button>
+            <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(chatTitle)} // ${pid}')">&gt; PEEK</button>
             <button class="btn-tui-action approve" onclick="window.tuiApprove('${pid}')">&gt; APPROVE (y)</button>
             <button class="btn-tui-action abort" onclick="window.tuiInterrupt('${pid}')">&gt; ABORT (^C)</button>
+            <button class="btn-tui-action close" onclick="window.tuiClosePane('${pid}')" title="Close Pane">&gt; CLOSE</button>
           </div>
         </div>
       `;
     }).join('');
   }
+
+  // Quick Action Triggers
+  window.tuiClosePane = async function(paneId) {
+    const pid = paneId || activeTerminalPaneId;
+    if (!pid) return;
+    if (!confirm(`Close terminal pane ${pid}? This will terminate the pane in Herdr.`)) return;
+    try {
+      await api('/api/pane/close', { method: 'POST', body: { pane_id: pid } });
+      showToast(`✓ PANE ${pid} CLOSED`);
+      if (activeTerminalPaneId === pid) {
+        closeTerminalModal();
+      }
+      setTimeout(refreshPanes, 600);
+    } catch (err) {
+      alert('Close failed: ' + err.message);
+    }
+  };
 
   // Quick Action Triggers
   window.tuiApprove = async function(paneId) {
@@ -557,6 +638,15 @@
         setTimeout(refreshPanes, 800);
       } catch (err) {
         alert('Kill failed: ' + err.message);
+      }
+    });
+  }
+
+  // Close Pane from Drawer Button
+  if (btnDrawerClosePane) {
+    btnDrawerClosePane.addEventListener('click', () => {
+      if (activeTerminalPaneId) {
+        window.tuiClosePane(activeTerminalPaneId);
       }
     });
   }
@@ -1131,6 +1221,89 @@
       }
     });
   }, 1000);
+
+  // -------------------------------------------------------------------------
+  // Desktop Terminal Keyboard Navigation (Esc to close/return, shortcuts)
+  // -------------------------------------------------------------------------
+  window.addEventListener('keydown', (e) => {
+    // Esc key: always closes the foremost modal or returns to main panes dashboard
+    if (e.key === 'Escape') {
+      let handled = false;
+      if (terminalModalOverlay && terminalModalOverlay.style.display !== 'none' && terminalModalOverlay.style.display !== '') {
+        closeTerminalModal();
+        handled = true;
+      } else if (sessionDetailOverlay && sessionDetailOverlay.style.display !== 'none' && sessionDetailOverlay.style.display !== '') {
+        sessionDetailOverlay.style.display = 'none';
+        handled = true;
+      } else if (launcherModalOverlay && launcherModalOverlay.style.display !== 'none' && launcherModalOverlay.style.display !== '') {
+        launcherModalOverlay.style.display = 'none';
+        handled = true;
+      } else if (boardModalOverlay && boardModalOverlay.style.display !== 'none' && boardModalOverlay.style.display !== '') {
+        boardModalOverlay.style.display = 'none';
+        handled = true;
+      }
+
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (document.activeElement) document.activeElement.blur();
+        return;
+      }
+
+      // If no modal is open, but an input is focused, blur it
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        document.activeElement.blur();
+        e.preventDefault();
+        return;
+      }
+
+      // If on sessions view, Esc returns to the main panes menu
+      const sessionsView = document.getElementById('sessions-view');
+      if (sessionsView && sessionsView.classList.contains('active')) {
+        switchToView('panes-view');
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // Do not trigger single-key desktop shortcuts while typing in inputs
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      return;
+    }
+    // Ignore if Ctrl / Meta / Alt is pressed
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      return;
+    }
+
+    // Shortcuts
+    if (e.key === '1') {
+      switchToView('panes-view');
+    } else if (e.key === '2') {
+      switchToView('sessions-view');
+    } else if (e.key === '+' || e.key === 'l' || e.key === 'L') {
+      if (btnOpenLauncher) {
+        e.preventDefault();
+        btnOpenLauncher.click();
+      }
+    } else if (e.key === 'b' || e.key === 'B') {
+      if (btnOpenBoard) {
+        e.preventDefault();
+        btnOpenBoard.click();
+      }
+    } else if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      refreshPanes();
+    } else if (e.key === '/') {
+      e.preventDefault();
+      const sessionsView = document.getElementById('sessions-view');
+      if (sessionsView && sessionsView.classList.contains('active')) {
+        const sInput = document.getElementById('session-search-input');
+        if (sInput) sInput.focus();
+      } else {
+        if (selectPaneSort) selectPaneSort.focus();
+      }
+    }
+  });
 
   // Register PWA Service Worker
   if ('serviceWorker' in navigator) {

@@ -53,7 +53,18 @@
     <!-- View 1: Active Panes (Cockpit) -->
     <section id="panes-view" class="tui-view active">
       <div class="tui-section-header">
-        <span>ACTIVE TERMINAL PANES</span>
+        <div class="section-title-group">
+          <span>ACTIVE TERMINAL PANES</span>
+          <div class="tui-sort-container">
+            <span class="sort-tag">SORT:</span>
+            <select class="tui-select-sort" id="select-pane-sort">
+              <option value="attention" selected>ATTENTION FIRST (Blocked &gt; Done &gt; Working)</option>
+              <option value="status">STATUS (Working &gt; Blocked &gt; Idle)</option>
+              <option value="workspace">WORKSPACE NUMBER</option>
+              <option value="name">CHAT / TASK NAME</option>
+            </select>
+          </div>
+        </div>
         <button id="btn-refresh" style="background:transparent; border:none; color:var(--cyan); cursor:pointer; font-family:var(--font-mono); font-size:11px;">[ REFRESH ]</button>
       </div>
       <div id="panes-container">
@@ -95,6 +106,7 @@
         <div class="drawer-header-actions">
           <button class="tui-btn-action" id="btn-toggle-autoscroll" title="Toggle Auto-Scroll">[ ⚡ AUTO-SCROLL: ON ]</button>
           <button class="tui-btn-kill" id="btn-drawer-kill" title="Emergency stop process">[ 🛑 KILL ]</button>
+          <button class="tui-btn-close-pane" id="btn-drawer-close-pane" title="Close terminal pane in Herdr">[ ✕ CLOSE PANE ]</button>
           <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
         </div>
       </div>
@@ -207,6 +219,17 @@
 
   <!-- Toast Notification -->
   <div class="tui-toast" id="tui-toast">✓ COMMAND DELIVERED</div>
+
+  <!-- Desktop Terminal Shortcut Legend Bar -->
+  <div class="desktop-shortcut-bar" id="desktop-shortcut-bar">
+    <span><kbd>Esc</kbd> Close / Back</span>
+    <span><kbd>1</kbd> Panes</span>
+    <span><kbd>2</kbd> Sessions</span>
+    <span><kbd>+</kbd> Launch Agent</span>
+    <span><kbd>b</kbd> Blackboard</span>
+    <span><kbd>r</kbd> Refresh</span>
+    <span><kbd>/</kbd> Search</span>
+  </div>
 
   <!-- Bottom Navigation -->
   <nav class="tui-nav">

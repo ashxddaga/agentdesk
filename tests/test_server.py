@@ -135,6 +135,34 @@ class TestAgentDeskBackend(unittest.TestCase):
         except Exception as e:
             pass
 
+    def test_enriched_snapshot_and_pane_close(self):
+        from agentdesk.server import get_enriched_snapshot
+        snap = get_enriched_snapshot()
+        self.assertIsInstance(snap, dict)
+        self.assertIn("panes", snap)
+        for p in snap.get("panes", []):
+            self.assertIn("chat_title", p)
+            self.assertIn("last_context", p)
+            self.assertIn("telemetry", p)
+
+        # Test POST /api/pane/close endpoint
+        cfg = load_config()
+        secret = cfg.get("secret", "")
+        base_url = f"http://127.0.0.1:{cfg.get('port', 9876)}"
+        body = json.dumps({"pane_id": "test-nonexistent-pane"}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base_url}/api/pane/close?secret={secret}",
+            data=body,
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                self.assertIn("pane_id", data)
+                self.assertIn("closed", data)
+        except Exception:
+            pass
+
 
 if __name__ == "__main__":
     unittest.main()

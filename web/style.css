@@ -250,6 +250,120 @@ main {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tui-sort-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0d121c;
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.sort-tag {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tui-select-sort {
+  background: transparent;
+  border: none;
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+}
+
+.tui-select-sort option {
+  background: #0d121c;
+  color: var(--text);
+}
+
+.pane-chat-title {
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  word-break: break-word;
+}
+
+.pane-chat-title .chat-icon {
+  color: var(--cyan);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.pane-context-msg {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2px solid var(--purple);
+  padding: 4px 8px;
+  border-radius: 0 3px 3px 0;
+  font-size: 11px;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-context-msg .context-tag {
+  font-weight: 700;
+  margin-right: 4px;
+  font-family: var(--font-mono);
+}
+
+.pane-context-msg .context-tag.user {
+  color: var(--cyan);
+}
+
+.pane-context-msg .context-tag.agent {
+  color: var(--purple);
+}
+
+.btn-tui-action.close {
+  color: #f87171;
+}
+
+.btn-tui-action.close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+}
+
+.tui-btn-close-pane {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tui-btn-close-pane:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--red);
+  color: var(--red);
 }
 
 /* ==========================================================================
@@ -960,4 +1074,88 @@ nav.tui-nav {
   padding: 2px 6px;
   border-radius: 3px;
   margin-top: 5px;
+}
+
+/* ==========================================================================
+   Desktop Terminal Layout & Authenticity (Phase 6 Desktop Delivery)
+   ========================================================================== */
+.desktop-shortcut-bar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  body {
+    padding-bottom: 42px; /* space for desktop shortcut bar */
+  }
+
+  main {
+    max-width: 1400px;
+    padding: 18px 24px;
+  }
+
+  .tui-header {
+    padding: 12px 24px;
+  }
+
+  .ws-strip {
+    padding: 6px 24px;
+  }
+
+  #panes-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+
+  .pane-box {
+    margin-bottom: 0;
+    transition: transform 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .pane-box:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .terminal-modal-frame {
+    max-width: 1150px;
+    height: 88vh;
+    border: 1px solid var(--cyan);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.15);
+  }
+
+  .desktop-shortcut-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    background: #040609;
+    border-top: 1px solid var(--border);
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    z-index: 45;
+    user-select: none;
+  }
+
+  .desktop-shortcut-bar kbd {
+    background: #161b22;
+    border: 1px solid var(--border);
+    color: var(--cyan);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-right: 4px;
+  }
+
+  .tui-nav {
+    display: none; /* Desktop uses header & keyboard shortcuts */
+  }
 }

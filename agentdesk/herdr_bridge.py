@@ -205,9 +205,15 @@ class HerdrBridge:
         return {}
 
     def kill_pane(self, pane_id: str, force: bool = False, close: bool = False) -> bool:
-        """Interrupt or terminate the active process in a pane."""
+        """Interrupt, terminate, or close a pane."""
         try:
             if close:
+                if self.is_available():
+                    try:
+                        self._call("pane.close", {"pane_id": pane_id})
+                        return True
+                    except Exception:
+                        pass
                 res = subprocess.run(["herdr", "pane", "close", pane_id], capture_output=True, text=True, timeout=3)
                 return res.returncode == 0
 

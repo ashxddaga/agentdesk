@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.1] — 2026-10-31
+
+### 🖥️ Authentic Terminal Multiplexer UI, Priority Attention Sorting, Keyboard Shortcuts & Pane Management
+- **Issue & Symptom**:
+  1. Desktop UI needed to feel as close as possible to an authentic terminal multiplexer dashboard (high-density layout, monospace CRT styling, multi-column grid, shortcut bar).
+  2. Main page agents were displayed in discovery order without prioritizing agents requiring immediate attention (waiting for input/blocked or done).
+  3. Desktop navigation required mouse clicking to close modals or return to main menu; user requested using the physical `Escape` key to close windows/drawers and return to the main menu.
+  4. Panes in overview lacked human-readable chat/task context; titles showed raw terminal paths (e.g. `ashish@ashish-omarchy:~`) rather than task names or the last prompt sent.
+  5. Users needed the ability to close terminals and panes directly when needed.
+- **Root Cause Analysis (RCA)**:
+  1. The desktop web viewport rendered cards in a single-column layout without multiplexer CSS breakpoints or keyboard shortcut legend bar.
+  2. Snapshot ordering did not apply priority scoring to operational status (`Blocked` > `Done` > `Working` > `Idle`).
+  3. No global `keydown` event listener existed in `web/app.js` to intercept `Escape` and route it to open modals or view switching.
+  4. Herdr pane snapshots only returned terminal PID/tty title and agent session CID (`p.agent_session.value`), without cross-referencing AgentR session metadata (`list_sessions`).
+  5. Herdr bridge lacked a clean close/terminate pane RPC trigger.
+- **Fix & Implementation**:
+  1. **Enriched Context & Session Title Mapping (`agentdesk/server.py`)**:
+     - Implemented `get_enriched_snapshot()` cross-referencing Herdr panes against AgentR session metadata (`cid -> title, snippet`), surfacing human-readable chat titles (`chat_title`) and prompt/message snippets (`last_context`).
+     - Added fallback heuristics to format raw TTY titles cleanly when no agent session is active.
+  2. **Pane Close Endpoint & RPC Bridge (`agentdesk/herdr_bridge.py`, `agentdesk/server.py`)**:
+     - Extended `herdr_bridge.py`'s `kill_pane(pane_id, close=True)` to execute Herdr's native socket RPC `pane.close`, with CLI fallback `herdr pane close <id>`.
+     - Added endpoint `POST /api/pane/close` (and `/api/pane/<id>/close`) in `agentdesk/server.py`.
+     - Added `[ ✕ CLOSE ]` action buttons on each card and `[ ✕ CLOSE PANE ]` in the terminal drawer.
+  3. **Priority Attention Sorting (`web/app.js`, `web/index.html`, `web/style.css`)**:
+     - Added sorting dropdown with modes: `Attention First (Blocked & Done on top)` [default], `Status`, `Workspace`, and `Name`.
+     - Priority scoring places `Blocked` (score 100) and `Done` (score 80) ahead of `Working` (score 60) and `Idle` (score 40).
+     - Persists user sorting preference in `localStorage.agentdesk_sort`.
+  4. **Authentic Desktop Terminal Multiplexer Aesthetics (`web/style.css`)**:
+     - Added `@media (min-width: 768px)` desktop terminal layout with multi-column card grid (`repeat(auto-fill, minmax(430px, 1fr))`), CRT scanline styling, high density, and fixed bottom keyboard shortcut bar (`#desktop-shortcut-bar`).
+  5. **Physical Keyboard Navigation & Hotkeys (`web/app.js`)**:
+     - Global `keydown` handler: `Escape` closes whichever modal is open (`#terminal-modal-overlay`, `#session-detail-overlay`, `#launcher-modal-overlay`, `#board-modal-overlay`), blurs inputs, and if on the Sessions view, returns directly to the main Panes dashboard.
+     - Single-key shortcuts (when not typing in an input): `1` (Panes), `2` (Sessions), `+`/`l` (Launcher), `b` (Blackboard), `r` (Refresh), `/` (Search/sort focus).
+- **Verification**:
+  - Added unit test `test_enriched_snapshot_and_pane_close` in `tests/test_server.py`.
+  - Added full desktop E2E test `test_desktop_terminal_experience_and_shortcuts` in `tests/test_e2e_browser.py`.
+  - Re-ran test pipeline `./run_tests.sh` to ensure all unit and E2E browser tests pass.
+
+---
+
 ## [0.4.0] — 2026-10-31
 
 ### 🚀 Live Streaming Terminal, Live Chat Stream & Vibrant Cockpit Ticker
