@@ -141,3 +141,16 @@ class AgentRBridge:
     def add_board_feedback(self, text: str, agent: str = "mobile", project_dir: Optional[str] = None) -> None:
         base = project_dir or self.workspace_dir
         add_feedback(text, agent=agent, project_dir=base)
+
+    def load_messages(self, limit: int = 40, topic: Optional[str] = None, recipient: Optional[str] = None, project_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+        base = project_dir or self.workspace_dir
+        try:
+            from agentr.comms import load_messages
+            return load_messages(base, limit=limit, topic=topic, recipient=recipient)
+        except Exception:
+            return []
+
+    def post_message(self, body: str, sender: str = "user", to: str = "@all", topic: str = "general", msg_type: str = "chat", reply_to: Optional[str] = None, project_dir: Optional[str] = None) -> Dict[str, Any]:
+        base = project_dir or self.workspace_dir
+        from agentr.comms import post_message
+        return post_message(body, sender=sender, to=to, topic=topic, msg_type=msg_type, reply_to=reply_to, project_dir=base)

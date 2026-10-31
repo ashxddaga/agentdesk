@@ -164,5 +164,26 @@ class TestAgentDeskBackend(unittest.TestCase):
             pass
 
 
+        # Test GET and POST /api/messages
+        req_msg_post = urllib.request.Request(
+            f"{base_url}/api/messages?secret={secret}",
+            data=json.dumps({"body": "Test message from unit test", "sender": "unit_tester", "topic": "test"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req_msg_post, timeout=3) as resp:
+                post_data = json.loads(resp.read().decode())
+                self.assertEqual(post_data.get("status"), "ok")
+                self.assertIn("message", post_data)
+
+            req_msg_get = urllib.request.Request(f"{base_url}/api/messages?secret={secret}&topic=test")
+            with urllib.request.urlopen(req_msg_get, timeout=3) as resp:
+                get_data = json.loads(resp.read().decode())
+                self.assertEqual(get_data.get("status"), "ok")
+                self.assertIn("messages", get_data)
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     unittest.main()

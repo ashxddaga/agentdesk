@@ -459,6 +459,15 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                     self.send_error_json(str(e), 500)
                 return
 
+            # API: Inter-agent message board / comms
+            if path in ("/api/messages", "/api/comms"):
+                limit = int(params.get("limit", [40])[0]) if "limit" in params else 40
+                topic = params.get("topic", [None])[0]
+                recipient = params.get("to", [None])[0]
+                msgs = AGENTR.load_messages(limit=limit, topic=topic, recipient=recipient)
+                self.send_json({"status": "ok", "messages": msgs, "count": len(msgs)})
+                return
+
             # API: Real-time Server-Sent Events (SSE)
             if path == "/api/events" or path == "/events":
                 self.handle_sse()
@@ -628,6 +637,35 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                 return
             AGENTR.add_board_feedback(text, agent=agent)
             self.send_json({"status": "ok"})
+            return
+
+        # API: Post to inter-agent message board
+        if path in ("/api/messages", "/api/comms"):
+            body_text = body.get("body") or body.get("text", "")
+            if not body_text:
+                self.send_error_json("Missing 'body' or 'text'")
+                return
+            sender = body.get("sender", "user")
+            to_target = body.get("to", "@all")
+            topic = body.get("topic", "general")
+            msg_type = body.get("type", "chat")
+            reply_to = body.get("reply_to")
+            try:
+                msg = AGENTR.post_message(
+                    body=body_text,
+                    sender=sender,
+                    to=to_target,
+                    topic=topic,
+                    msg_type=msg_type,
+                    reply_to=reply_to
+                )
+                WATCHDOG.alert_events.append({
+                    "type": "agent.message",
+                    "message": msg
+                })
+                self.send_json({"status": "ok", "message": msg})
+            except Exception as e:
+                self.send_error_json(str(e), 500)
             return
 
         self.send_error_json("Endpoint not found", 404)

@@ -24,6 +24,7 @@
       <button class="tui-header-btn" id="btn-open-launcher" title="Launch new agent in Herdr">[ + LAUNCH ]</button>
       <button class="tui-header-btn" id="btn-toggle-board" title="View AgentR task board">[ 📋 BOARD ]</button>
       <button class="tui-header-btn" id="btn-toggle-swarm" title="View Multi-Agent Swarm Radar">[ 🛰️ SWARM ]</button>
+      <button class="tui-header-btn" id="btn-toggle-comms" title="Inter-Agent Message Board &amp; Comms">[ 💬 COMMS ]</button>
       <button class="tui-header-btn" id="btn-open-guide" title="Multi-Agent Orchestration &amp; /teamwork Guide">[ 📖 GUIDE ]</button>
       <div class="tui-status-tag" id="conn-status-tag">
         <div class="tui-dot" id="conn-dot"></div>
@@ -290,6 +291,59 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
     </div>
   </div>
 
+  <!-- Inter-Agent Comms & Message Board Modal -->
+  <div class="terminal-modal-overlay" id="comms-modal-overlay">
+    <div class="terminal-modal-frame" style="max-height: 88vh; display:flex; flex-direction:column;">
+      <div class="tui-drawer-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="tui-drawer-title">💬 AGENT MESSAGE BOARD &amp; COMMS</span>
+          <div class="live-stream-badge"><span class="live-stream-dot"></span> LIVE BUS</div>
+        </div>
+        <div class="drawer-header-actions">
+          <button class="tui-btn-action" id="btn-comms-refresh" title="Refresh Messages">[ ↻ REFRESH ]</button>
+          <button class="tui-btn-close" id="comms-close-btn">[ ESC / CLOSE ]</button>
+        </div>
+      </div>
+
+      <!-- Topic filter pills -->
+      <div class="comms-topics-bar" id="comms-topics-bar">
+        <button class="comms-topic-btn active" data-topic="all">#all</button>
+        <button class="comms-topic-btn" data-topic="solidcraft">#solidcraft</button>
+        <button class="comms-topic-btn" data-topic="infra">#infra</button>
+        <button class="comms-topic-btn" data-topic="blocker">#blockers</button>
+        <button class="comms-topic-btn" data-topic="general">#general</button>
+      </div>
+
+      <!-- Message thread stream -->
+      <div class="terminal-stream-box comms-stream-box" id="comms-messages-list" style="flex:1; overflow-y:auto; background:#07090e;">
+        Loading message board…
+      </div>
+
+      <!-- Live message composer -->
+      <div class="comms-composer-bar">
+        <div class="comms-composer-meta">
+          <label>To:
+            <select id="comms-recipient-select" class="comms-select">
+              <option value="@all">@all (Broadcast)</option>
+              <option value="@cad">@cad (CAD Fleet)</option>
+              <option value="@opencode">@opencode (Engine Worker)</option>
+              <option value="@agentr">@agentr (Platform Lead)</option>
+              <option value="@grok">@grok (Reviewer)</option>
+            </select>
+          </label>
+          <label>Topic:
+            <input type="text" id="comms-topic-input" class="comms-input-sm" value="general" placeholder="topic" />
+          </label>
+        </div>
+        <div class="tui-input-line" style="margin-top:6px;">
+          <span class="tui-prompt-symbol">💬</span>
+          <input type="text" class="tui-input-text" id="comms-body-input" placeholder="send message to agents..." />
+          <button class="btn-tui-send" id="btn-comms-send">POST</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Session Details Modal -->
   <div class="terminal-modal-overlay" id="session-detail-overlay">
     <div class="terminal-modal-frame" id="session-detail-frame">
@@ -326,6 +380,7 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
     <span><kbd>4</kbd> Guide</span>
     <span><kbd>+</kbd> Launch Agent</span>
     <span><kbd>b</kbd> Blackboard</span>
+    <span><kbd>c</kbd> Comms</span>
     <span><kbd>r</kbd> Refresh</span>
     <span><kbd>/</kbd> Search</span>
   </div>

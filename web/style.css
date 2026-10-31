@@ -1549,3 +1549,135 @@ nav.tui-nav {
   overflow-x: auto;
 }
 
+/* ---------------------------------------------------------------------------
+ * Inter-Agent Comms & Message Board Modal
+ * --------------------------------------------------------------------------- */
+.comms-topics-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #080c14;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.comms-topic-btn {
+  background: #0d1522;
+  border: 1px solid var(--border);
+  color: #94a3b8;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.comms-topic-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  font-weight: bold;
+}
+
+.comms-stream-box {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comms-msg-card {
+  background: #0a0f19;
+  border: 1px solid #162030;
+  border-radius: 4px;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.comms-msg-card:hover {
+  border-color: #27374d;
+}
+
+.comms-msg-card.type-blocker {
+  border-left: 3px solid #ef4444;
+}
+
+.comms-msg-card.type-review {
+  border-left: 3px solid #a855f7;
+}
+
+.comms-msg-card.type-request {
+  border-left: 3px solid #f59e0b;
+}
+
+.comms-msg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.comms-sender-badge {
+  font-weight: bold;
+  color: #38bdf8;
+}
+
+.comms-to-badge {
+  color: #10b981;
+}
+
+.comms-topic-badge {
+  background: #141c2a;
+  color: #94a3b8;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 10px;
+}
+
+.comms-time-stamp {
+  color: #475569;
+  font-size: 10px;
+}
+
+.comms-body-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #e2e8f0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.comms-reply-tag {
+  color: #64748b;
+  font-size: 10px;
+  margin-left: 6px;
+}
+
+.comms-composer-bar {
+  background: #070a10;
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+}
+
+.comms-composer-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.comms-select, .comms-input-sm {
+  background: #04060a;
+  border: 1px solid var(--border);
+  color: #f1f5f9;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+

@@ -248,6 +248,14 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "600")
         self.assertEqual(self.run_browser("is", "visible", "#panes-view"), "true")
 
+        # 11. Test Comms Modal via shortcut 'c' and Escape to close
+        self.run_browser("press", "c")
+        self.run_browser("wait", "800")
+        self.assertEqual(self.run_browser("is", "visible", "#comms-modal-overlay"), "true")
+        self.run_browser("press", "Escape")
+        self.run_browser("wait", "600")
+        self.assertEqual(self.run_browser("is", "visible", "#comms-modal-overlay"), "false")
+
 
 if __name__ == "__main__":
     unittest.main()

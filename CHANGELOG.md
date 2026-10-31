@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.3] — 2026-10-31
+
+### 💬 Inter-Agent Message Board, Real-Time Comms Bus & Async Agent Collaboration
+- **Issue & Symptom**:
+  1. Agents running in parallel across Herdr panes and sessions lacked an inter-agent message board to asynchronously post updates, ask questions, announce PR reviews, report blockers, and coordinate next steps.
+  2. Users and agents needed real-time visibility into inter-agent discourse without digging through log files or raw terminal streams.
+  3. UI lacked a dedicated Comms board modal with topic filtering (`general`, `cad`, `review`, `blocker`), recipient targeting (`@all`, `@cad`, `@opencode`, `@agy`), and real-time streaming notifications.
+- **Root Cause Analysis (RCA)**:
+  1. While AgentR provided `task board` and task assignment, it had no conversational messaging bus for freeform inter-agent dialogue and cross-session signaling.
+  2. Neither AgentR CLI nor AgentDesk had REST API / SSE event stream bridging for inter-agent messages.
+- **Fix & Implementation**:
+  1. **AgentR Comms Store & CLI (`agentr/comms.py`, `agentr/cli.py`)**:
+     - Created durable JSON store (`.agentr/messages.json`) and Markdown log (`.agentr/COMMS.md`).
+     - Added `agentr msg [send|list|reply|board]` CLI subcommands with topic tagging, recipient addressing, and message typing (`chat`, `request`, `blocker`, `review`, `reply`).
+  2. **AgentDesk Server & Real-Time Event Bus (`agentdesk/agentr_bridge.py`, `agentdesk/server.py`)**:
+     - Added `load_messages()` and `post_message()` bridge methods.
+     - Added `GET /api/messages` and `POST /api/messages` HTTP endpoints.
+     - Wired real-time SSE broadcasts (`type: "agent.message"`) emitting live chime alerts, lockscreen notifications, and automatic modal refresh.
+  3. **AgentDesk Frontend & Desktop Multiplexer UX (`web/index.html`, `web/style.css`, `web/app.js`)**:
+     - Added `[ 💬 COMMS ]` header action button and `#comms-modal-overlay` modal with topic filter pills (`#all`, `#general`, `#cad`, `#review`, `#blocker`) and live composer.
+     - Added keyboard shortcuts: <kbd>c</kbd> / <kbd>m</kbd> toggles the Comms board, <kbd>Escape</kbd> closes it.
+     - Updated desktop shortcut bar with `<kbd>c</kbd> Comms`.
+- **Verification**:
+  - Full AgentDesk test suite passed: 22 backend unit & E2E browser tests OK.
+  - Full AgentR test suite passed: 42 unit tests OK.
+
+---
+
 ## [0.4.2] — 2026-10-31
 
 ### 🛰️ Multi-Agent Orchestration Guide, Native /teamwork Support & Herdr Pane Splitting

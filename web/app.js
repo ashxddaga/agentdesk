@@ -88,6 +88,18 @@
   const btnBoardAddFeedback = document.getElementById('btn-board-add-feedback');
   const boardTasksList = document.getElementById('board-tasks-list');
 
+  // Comms Message Board Elements
+  const commsModalOverlay = document.getElementById('comms-modal-overlay');
+  const btnToggleComms = document.getElementById('btn-toggle-comms');
+  const commsCloseBtn = document.getElementById('comms-close-btn');
+  const btnCommsRefresh = document.getElementById('btn-comms-refresh');
+  const commsMessagesList = document.getElementById('comms-messages-list');
+  const commsRecipientSelect = document.getElementById('comms-recipient-select');
+  const commsTopicInput = document.getElementById('comms-topic-input');
+  const commsBodyInput = document.getElementById('comms-body-input');
+  const btnCommsSend = document.getElementById('btn-comms-send');
+  let activeCommsTopic = 'all';
+
   // Session Details Modal
   const sessionDetailOverlay = document.getElementById('session-detail-overlay');
   const sessionModalTitle = document.getElementById('session-modal-title');
@@ -949,6 +961,124 @@
   }
 
   // -------------------------------------------------------------------------
+  // Inter-Agent Comms & Message Board Modal Logic
+  // -------------------------------------------------------------------------
+  async function loadCommsMessages(topic = activeCommsTopic) {
+    if (!commsMessagesList) return;
+    commsMessagesList.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">[ querying comms bus... ]</div>';
+    try {
+      const params = {};
+      if (topic && topic !== 'all') params.topic = topic;
+      params.limit = 40;
+      const res = await api('/api/messages', { params });
+      const msgs = res.messages || [];
+
+      if (msgs.length === 0) {
+        commsMessagesList.innerHTML = '<div class="tui-empty-state">No messages posted on this topic yet. Send one below!</div>';
+        return;
+      }
+
+      commsMessagesList.innerHTML = msgs.slice().reverse().map(m => {
+        const mid = m.id || 'msg-?';
+        const snd = m.sender || 'unknown';
+        const to = m.to || '@all';
+        const tpc = m.topic || 'general';
+        const tstr = m.time_str || m.timestamp || '';
+        const body = m.body || '';
+        const mtype = (m.type || 'chat').toLowerCase();
+        const replyTag = m.reply_to ? `<span class="comms-reply-tag">re: ${escapeHtml(m.reply_to)}</span>` : '';
+
+        return `
+          <div class="comms-msg-card type-${escapeHtml(mtype)}">
+            <div class="comms-msg-header">
+              <div>
+                <span class="comms-sender-badge">@${escapeHtml(snd)}</span>
+                <span style="color:#64748b;">➔</span>
+                <span class="comms-to-badge">${escapeHtml(to)}</span>
+                <span class="comms-topic-badge">#${escapeHtml(tpc)}</span>
+                ${replyTag}
+              </div>
+              <span class="comms-time-stamp">${escapeHtml(tstr)}</span>
+            </div>
+            <div class="comms-body-text">${escapeHtml(body)}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      commsMessagesList.innerHTML = `<div class="tui-empty-state" style="color:var(--red);">! Error loading messages: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  if (btnToggleComms) {
+    btnToggleComms.addEventListener('click', () => {
+      if (commsModalOverlay) {
+        commsModalOverlay.style.display = 'block';
+        loadCommsMessages(activeCommsTopic);
+      }
+    });
+  }
+
+  if (commsCloseBtn) {
+    commsCloseBtn.addEventListener('click', () => {
+      if (commsModalOverlay) commsModalOverlay.style.display = 'none';
+    });
+  }
+
+  if (commsModalOverlay) {
+    commsModalOverlay.addEventListener('click', (e) => {
+      if (e.target === commsModalOverlay) commsModalOverlay.style.display = 'none';
+    });
+  }
+
+  if (btnCommsRefresh) {
+    btnCommsRefresh.addEventListener('click', () => {
+      loadCommsMessages(activeCommsTopic);
+    });
+  }
+
+  document.querySelectorAll('.comms-topic-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.comms-topic-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCommsTopic = btn.getAttribute('data-topic') || 'all';
+      loadCommsMessages(activeCommsTopic);
+    });
+  });
+
+  async function submitCommsMessage() {
+    if (!commsBodyInput) return;
+    const txt = commsBodyInput.value.trim();
+    if (!txt) return;
+    const to = (commsRecipientSelect ? commsRecipientSelect.value : '@all');
+    const topic = (commsTopicInput ? commsTopicInput.value.trim() : 'general') || 'general';
+
+    try {
+      await api('/api/messages', {
+        method: 'POST',
+        body: { body: txt, sender: 'user', to: to, topic: topic, type: 'chat' }
+      });
+      commsBodyInput.value = '';
+      showToast('✓ MESSAGE POSTED TO COMMS BUS');
+      loadCommsMessages(activeCommsTopic);
+    } catch (err) {
+      alert('Post failed: ' + err.message);
+    }
+  }
+
+  if (btnCommsSend) {
+    btnCommsSend.addEventListener('click', submitCommsMessage);
+  }
+
+  if (commsBodyInput) {
+    commsBodyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitCommsMessage();
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Swarm & Multi-Agent Radar View
   // -------------------------------------------------------------------------
   const swarmContainer = document.getElementById('swarm-container');
@@ -1268,6 +1398,16 @@
           sendLockScreenNotification('Autonomous Run Complete', data.message || `Pane ${data.pane_id} completed execution.`);
           showToast(`🎉 RUN FINISHED: ${data.pane_id}`);
           refreshPanes();
+        } else if (data.type === 'agent.message') {
+          const m = data.message || {};
+          const snd = m.sender || 'agent';
+          const txt = m.body || '';
+          showToast(`💬 @${snd}: ${txt.slice(0, 35)}...`);
+          playAlertChime();
+          sendLockScreenNotification(`Message from @${snd}`, txt);
+          if (commsModalOverlay && commsModalOverlay.style.display !== 'none') {
+            loadCommsMessages(activeCommsTopic);
+          }
         }
       } catch (err) {}
     };
@@ -1328,6 +1468,9 @@
       } else if (boardModalOverlay && boardModalOverlay.style.display !== 'none' && boardModalOverlay.style.display !== '') {
         boardModalOverlay.style.display = 'none';
         handled = true;
+      } else if (commsModalOverlay && commsModalOverlay.style.display !== 'none' && commsModalOverlay.style.display !== '') {
+        commsModalOverlay.style.display = 'none';
+        handled = true;
       }
 
       if (handled) {
@@ -1385,6 +1528,11 @@
       if (btnToggleBoard) {
         e.preventDefault();
         btnToggleBoard.click();
+      }
+    } else if (e.key === 'c' || e.key === 'C') {
+      if (btnToggleComms) {
+        e.preventDefault();
+        btnToggleComms.click();
       }
     } else if (e.key === 'r' || e.key === 'R') {
       e.preventDefault();
