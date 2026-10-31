@@ -82,7 +82,8 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         # 1. Open and set mobile viewport
         self.run_browser("open", url)
         self.run_browser("set", "viewport", "412", "915")
-        self.run_browser("wait", "1500")
+        self.run_browser("wait", ".pane-box")
+        self.run_browser("wait", "500")
 
         # 2. Assert connection status & title
         status_text = self.run_browser("get", "text", "#conn-label")
@@ -192,7 +193,8 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         # 1. Open and set desktop viewport (1280x800)
         self.run_browser("open", url)
         self.run_browser("set", "viewport", "1280", "800")
-        self.run_browser("wait", "1500")
+        self.run_browser("wait", ".pane-box")
+        self.run_browser("wait", "500")
 
         # 2. Check desktop shortcut bar is visible
         shortcut_bar_text = self.run_browser("get", "text", "#desktop-shortcut-bar")
@@ -211,7 +213,12 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.assertGreater(close_btn_count, 0)
 
         # 5. Open terminal peek modal
-        self.run_browser("click", ".pane-box:first-child button.primary")
+        try:
+            self.run_browser("scrollintoview", 'div[data-pane-id="w8:p3"] button.primary')
+            self.run_browser("click", 'div[data-pane-id="w8:p3"] button.primary')
+        except Exception:
+            self.run_browser("scrollintoview", ".pane-box:first-child button.primary")
+            self.run_browser("click", ".pane-box:first-child button.primary")
         self.run_browser("wait", "1000")
         self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "true")
         self.assertEqual(self.run_browser("is", "visible", "#btn-drawer-close-pane"), "true")
@@ -227,6 +234,16 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.assertEqual(self.run_browser("is", "visible", "#sessions-view"), "true")
 
         # 8. Test Esc key on Sessions view returns to main Panes dashboard
+        self.run_browser("press", "Escape")
+        self.run_browser("wait", "600")
+        self.assertEqual(self.run_browser("is", "visible", "#panes-view"), "true")
+
+        # 9. Test shortcut '4' to switch to Guide view
+        self.run_browser("press", "4")
+        self.run_browser("wait", "1000")
+        self.assertEqual(self.run_browser("is", "visible", "#guide-view"), "true")
+
+        # 10. Test Esc returns to main Panes dashboard
         self.run_browser("press", "Escape")
         self.run_browser("wait", "600")
         self.assertEqual(self.run_browser("is", "visible", "#panes-view"), "true")

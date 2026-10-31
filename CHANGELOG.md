@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.2] — 2026-10-31
+
+### 🛰️ Multi-Agent Orchestration Guide, Native /teamwork Support & Herdr Pane Splitting
+- **Issue & Symptom**:
+  1. User inquired how to leverage Antigravity's native `/teamwork` system and orchestrate heterogeneous agent fleets (`agy`, `opencode`, `freebuff`, `grok`).
+  2. The CAD agent (`w7:p1`) was struggling to dispatch and coordinate multi-agent tasks through AgentR.
+  3. No in-app guide existed explaining how to orchestrate multi-agent workflows, Herdr pane splitting, and native agent capabilities.
+- **Root Cause Analysis (RCA)**:
+  1. Automated browser E2E test runners were clicking `div[data-pane-id="w7:p1"]`, injecting probe keystrokes directly into active agent terminal stdin, interrupting agent turns.
+  2. `agentr task dispatch` hardcoded `os.execvp`, which hijacked the calling process and blocked on stdin instead of cleanly spawning parallel agents in Herdr panes.
+  3. Neither AgentR nor AgentDesk had built-in templates to format tasks for Antigravity's native `/teamwork` protocol (Small focused team vs. Full team vs. Swarm).
+- **Fix & Implementation**:
+  1. **Safe E2E Browser Testing (`tests/test_e2e_browser.py`)**:
+     - Updated test selectors to explicitly target shell/mock terminal panes (`w8:p3`) rather than active AI agent panes. Added auto `scrollintoview`.
+  2. **Herdr Pane & Workspace Dispatch (`agentr/dispatch.py`, `agentr/cli.py`)**:
+     - Added `--pane` / `--split` to `agentr task dispatch`, invoking `herdr pane split` and launching the assigned agent without blocking the caller.
+     - Added `--workspace <label>` to dispatch tasks into dedicated Herdr workspaces.
+     - Added `--teamwork <small|full|proof|review>` formatting prompts to the `/teamwork` protocol contract (Requirements R1, Acceptance Criteria, team scale directives).
+  3. **Multi-Agent Orchestration Guide & Web View (`docs/`, `web/`)**:
+     - Authored [`docs/GUIDE_MULTI_AGENT_ORCHESTRATION.md`](file:///home/ashish/Work/agentdesk/docs/GUIDE_MULTI_AGENT_ORCHESTRATION.md).
+     - Added dedicated `4:GUIDE` tab in AgentDesk with 4 interactive sub-tabs: 4-Tier Architecture, Native `/teamwork`, Herdr Pane Dispatch, and Autonomous Loop Recipes.
+     - Bound shortcut <kbd>4</kbd> and <kbd>g</kbd> to jump straight into the guide.
+- **Verification**:
+  - All 41 unit tests in `agentr` pass.
+  - All 22 unit & browser E2E tests in `agentdesk` pass cleanly.
+
+---
+
 ## [0.4.1] — 2026-10-31
 
 ### 🖥️ Authentic Terminal Multiplexer UI, Priority Attention Sorting, Keyboard Shortcuts & Pane Management

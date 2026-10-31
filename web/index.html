@@ -24,6 +24,7 @@
       <button class="tui-header-btn" id="btn-open-launcher" title="Launch new agent in Herdr">[ + LAUNCH ]</button>
       <button class="tui-header-btn" id="btn-toggle-board" title="View AgentR task board">[ 📋 BOARD ]</button>
       <button class="tui-header-btn" id="btn-toggle-swarm" title="View Multi-Agent Swarm Radar">[ 🛰️ SWARM ]</button>
+      <button class="tui-header-btn" id="btn-open-guide" title="Multi-Agent Orchestration &amp; /teamwork Guide">[ 📖 GUIDE ]</button>
       <div class="tui-status-tag" id="conn-status-tag">
         <div class="tui-dot" id="conn-dot"></div>
         <span id="conn-label">ONLINE</span>
@@ -103,6 +104,90 @@
       </div>
       <div id="swarm-container">
         <div class="tui-empty-state">Connecting to AgentR Swarm Radar…</div>
+      </div>
+    </section>
+
+    <!-- View 4: Multi-Agent Orchestration & /teamwork Guide -->
+    <section id="guide-view" class="tui-view">
+      <div class="tui-section-header">
+        <span>📖 MULTI-AGENT ORCHESTRATION &amp; /teamwork GUIDE</span>
+        <span class="header-tag">FRAMEWORK</span>
+      </div>
+      <div class="guide-container">
+        <!-- Interactive Sub-Tabs for Guide -->
+        <div class="guide-subtabs">
+          <button class="guide-tab-btn active" data-guide-section="guide-arch">1. 4-Tier Stack</button>
+          <button class="guide-tab-btn" data-guide-section="guide-teamwork">2. Native /teamwork</button>
+          <button class="guide-tab-btn" data-guide-section="guide-dispatch">3. Herdr Pane Dispatch</button>
+          <button class="guide-tab-btn" data-guide-section="guide-loop">4. Autonomous Loop</button>
+        </div>
+
+        <div class="guide-content-box" id="guide-arch">
+          <h3>⚡ The 4-Tier Multi-Agent Stack</h3>
+          <p>Orchestrating agents effectively requires separating concerns across four durable tiers:</p>
+          <div class="guide-tier-card">
+            <span class="tier-badge">Tier 1: AgentDesk Cockpit</span>
+            <p>Your mobile &amp; desktop command center on port 9876. Live streaming terminal peek, tactile macro keypad, priority attention sorting (done/blocked on top), and real-time swarm radar.</p>
+          </div>
+          <div class="guide-tier-card">
+            <span class="tier-badge">Tier 2: AgentR Switchboard &amp; Blackboard</span>
+            <p>Shared project task ledger (<code>BOARD.md</code> / <code>.agentr/tasks.json</code>), cross-agent session search, live context snapshotting, and task dispatcher.</p>
+          </div>
+          <div class="guide-tier-card">
+            <span class="tier-badge">Tier 3: Herdr Terminal Multiplexer</span>
+            <p>Manages named workspaces (<code>~General</code>, <code>~CAD</code>, <code>~AgentR</code>) and split terminal panes (<code>w7:p1</code>, <code>w7:p2</code>). Provides socket RPC to safely read buffers and send input without terminating agents.</p>
+          </div>
+          <div class="guide-tier-card">
+            <span class="tier-badge">Tier 4: Agent Fleet &amp; Native Frameworks</span>
+            <p>The actual intelligence engines: Antigravity (<code>agy</code>) with native <code>/teamwork</code> and subagents; OpenCode (<code>opencode</code>) with free DeepSeek Flash; Freebuff and Grok.</p>
+          </div>
+        </div>
+
+        <div class="guide-content-box" id="guide-teamwork" style="display:none;">
+          <h3>🤖 Leveraging Antigravity Native /teamwork</h3>
+          <p>Antigravity contains a built-in multi-agent subagent system invoked via <code>/teamwork</code> or <code>teamwork_preview</code>:</p>
+          <div class="guide-code-block">
+            <strong>4 Team Shapes available in /teamwork:</strong>
+            <ul>
+              <li><strong>Small, Focused Team (Best for Bug Fixes)</strong>: 1 implementer + repeated adversarial reviews. Prompt directive: <code>"This is a single self-contained fix; keep it small and focused."</code></li>
+              <li><strong>Full Team</strong>: Multi-phase architect, researchers, implementers, and QA for major features and builds.</li>
+              <li><strong>Large Swarm Team</strong>: 100+ concurrent agents for complex theorem proving and mathematical problem solving. Prompt directive: <code>"Use a very large team of agents."</code></li>
+              <li><strong>Document Review Team</strong>: In-depth architectural spec and whitepaper audit.</li>
+            </ul>
+          </div>
+          <div class="guide-tier-card">
+            <span class="tier-badge">The Teamwork Contract: Specify What, Not How</span>
+            <p>Always specify clear <strong>Requirements (R1, R2)</strong> and objective <strong>Acceptance Criteria</strong> (e.g. <code>cargo test</code> passes). Avoid over-specifying internal implementation details so the agent team can explore the best solution.</p>
+          </div>
+        </div>
+
+        <div class="guide-content-box" id="guide-dispatch" style="display:none;">
+          <h3>🛰️ Cross-Agent Dispatch into Herdr Panes</h3>
+          <p>Instead of running multiple agents inside one process or hijacking your active terminal, use AgentR to dispatch tasks into side-by-side Herdr panes:</p>
+          <div class="guide-code-block">
+            <pre># Split current workspace &amp; run OpenCode in parallel:
+agentr task dispatch task-16 --pane
+
+# Dispatch into a brand new Herdr workspace:
+agentr task dispatch task-15 --workspace "CAD-Fleet"
+
+# Dispatch with automatic /teamwork formatting:
+agentr task dispatch task-15 --teamwork small --pane</pre>
+          </div>
+          <p>The dispatched agent launches in its own dedicated terminal pane, visible on your desktop and in AgentDesk. The calling agent continues running uninterrupted!</p>
+        </div>
+
+        <div class="guide-content-box" id="guide-loop" style="display:none;">
+          <h3>🔄 The Autonomous Bug-Fixing Loop</h3>
+          <p>To keep the CAD agent and AgentR working without human intervention, follow this high-level loop:</p>
+          <ol style="margin-left:20px; line-height:1.7;">
+            <li><strong>Find Bugs</strong>: Architect agent identifies bugs in the target repository.</li>
+            <li><strong>Register on Board</strong>: Run <code>agentr task add "&lt;title&gt;" --agent opencode --desc "&lt;details&gt;"</code>.</li>
+            <li><strong>Dispatch to Panes</strong>: Run <code>agentr task dispatch &lt;id&gt; --pane</code>.</li>
+            <li><strong>Report Platform Friction</strong>: If an agent hits an AgentR/Herdr issue, run <code>agentr feedback "&lt;friction&gt;"</code>.</li>
+            <li><strong>AgentR Self-Heals</strong>: The <code>~AgentR</code> workspace agent reads feedback, fixes the framework, runs tests, and deploys live!</li>
+          </ol>
+        </div>
       </div>
     </section>
   </main>
@@ -238,6 +323,7 @@
     <span><kbd>1</kbd> Panes</span>
     <span><kbd>2</kbd> Sessions</span>
     <span><kbd>3</kbd> Swarm</span>
+    <span><kbd>4</kbd> Guide</span>
     <span><kbd>+</kbd> Launch Agent</span>
     <span><kbd>b</kbd> Blackboard</span>
     <span><kbd>r</kbd> Refresh</span>
@@ -254,6 +340,9 @@
     </button>
     <button class="tui-nav-btn" data-view="swarm-view">
       <span>🛰️ 3:SWARM</span>
+    </button>
+    <button class="tui-nav-btn" data-view="guide-view">
+      <span>📖 4:GUIDE</span>
     </button>
   </nav>
 

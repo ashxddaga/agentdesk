@@ -1015,6 +1015,26 @@
   }, 4000);
 
   // -------------------------------------------------------------------------
+  // Multi-Agent & /teamwork Guide View
+  // -------------------------------------------------------------------------
+  const btnOpenGuide = document.getElementById('btn-open-guide');
+  if (btnOpenGuide) {
+    btnOpenGuide.addEventListener('click', () => {
+      switchToView('guide-view');
+    });
+  }
+
+  document.querySelectorAll('.guide-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.guide-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.guide-content-box').forEach(c => c.style.display = 'none');
+      btn.classList.add('active');
+      const targetSec = document.getElementById(btn.getAttribute('data-guide-section'));
+      if (targetSec) targetSec.style.display = 'block';
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Sessions & AgentR Search
   // -------------------------------------------------------------------------
   async function loadSessions(query = '') {
@@ -1324,12 +1344,15 @@
         return;
       }
 
-      // If on sessions view, Esc returns to the main panes menu
-      const sessionsView = document.getElementById('sessions-view');
-      if (sessionsView && sessionsView.classList.contains('active')) {
-        switchToView('panes-view');
-        e.preventDefault();
-        return;
+      // If on secondary views, Esc returns to the main panes menu
+      const secondaryViews = ['sessions-view', 'swarm-view', 'guide-view'];
+      for (const vid of secondaryViews) {
+        const vEl = document.getElementById(vid);
+        if (vEl && vEl.classList.contains('active')) {
+          switchToView('panes-view');
+          e.preventDefault();
+          return;
+        }
       }
     }
 
@@ -1347,7 +1370,11 @@
       switchToView('panes-view');
     } else if (e.key === '2') {
       switchToView('sessions-view');
-    } else if (e.key === '3' || e.key === 's' || e.key === 'S') {
+    } else if (e.key === '3') {
+      switchToView('swarm-view');
+    } else if (e.key === '4' || e.key === 'g' || e.key === 'G') {
+      switchToView('guide-view');
+    } else if (e.key === 's' || e.key === 'S') {
       switchToView('swarm-view');
     } else if (e.key === '+' || e.key === 'l' || e.key === 'L') {
       if (btnOpenLauncher) {
