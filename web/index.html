@@ -202,10 +202,11 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
           <div class="live-stream-badge" id="terminal-live-badge"><span class="live-stream-dot"></span> LIVE</div>
         </div>
         <div class="drawer-header-actions">
+          <button class="tui-btn-action send-now" id="btn-drawer-send-now" onclick="window.tuiSendNow()" title="Send queued prompt immediately (Alt+M)">[ ⚡ ALT+M ]</button>
           <button class="tui-btn-action" id="btn-toggle-autoscroll" title="Toggle Auto-Scroll">[ ⚡ AUTO-SCROLL: ON ]</button>
           <button class="tui-btn-kill" id="btn-drawer-kill" title="Emergency stop process">[ 🛑 KILL ]</button>
-          <button class="tui-btn-close-pane" id="btn-drawer-close-pane" title="Close terminal pane in Herdr">[ ✕ CLOSE PANE ]</button>
-          <button class="tui-btn-close" id="terminal-close-btn">[ ESC / CLOSE ]</button>
+          <button class="tui-btn-close-pane" id="btn-drawer-close-pane" title="Close terminal pane in Herdr">[ ✕ PANE ]</button>
+          <button class="tui-btn-close" id="terminal-close-btn" title="Close drawer (Esc)">[ ✕ ESC ]</button>
         </div>
       </div>
       <div class="terminal-stream-box" id="terminal-stream-content">Loading stream…</div>
@@ -219,6 +220,7 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
         <button class="keycap" data-key="tab" title="Tab">⇥ Tab</button>
         <button class="keycap" data-key="space" title="Space (toggle checkbox / option)">␣ Space</button>
         <button class="keycap action-key" data-key="enter" title="Enter">↵ Enter</button>
+        <button class="keycap nav-key" data-key="alt+m" title="Alt+M: Send queued message immediately in Antigravity">⚡ Alt+M</button>
         <button class="keycap action-key" data-action="y_enter" title="Approve">y + ↵</button>
         <button class="keycap" data-action="n_enter" title="Reject">n</button>
         <button class="keycap abort-key" data-key="ctrl+c" title="Abort process">^C</button>

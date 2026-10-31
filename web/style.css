@@ -539,6 +539,16 @@ main {
   color: var(--cyan);
 }
 
+.btn-tui-action.send-now {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.btn-tui-action.send-now:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
 .btn-tui-action.approve {
   color: var(--green);
   font-weight: 700;
@@ -572,16 +582,22 @@ main {
   display: flex;
   flex-direction: column;
   z-index: 101;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .tui-drawer-header {
   background: var(--bg-frame);
   border-bottom: 1px solid var(--border);
-  padding: 8px 12px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .tui-drawer-title {
@@ -643,6 +659,17 @@ main {
 .tui-btn-action.paused {
   color: var(--amber);
   border-color: var(--amber);
+}
+
+.tui-btn-action.send-now {
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.tui-btn-action.send-now:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+  color: #f59e0b;
 }
 
 .tui-btn-close {
@@ -998,7 +1025,25 @@ nav.tui-nav {
 .drawer-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .tui-drawer-header {
+    padding: 6px 8px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .drawer-header-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .drawer-header-actions button {
+    padding: 2px 5px;
+    font-size: 10px;
+  }
 }
 
 .tui-btn-kill {

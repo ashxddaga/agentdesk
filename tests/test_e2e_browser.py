@@ -267,12 +267,16 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "1000")
         self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "true")
 
-        # Check virtual D-pad buttons exist
+        # Check virtual D-pad and Alt+M buttons exist
         nav_keys_count = int(self.run_browser("get", "count", ".keycap.nav-key"))
-        self.assertGreaterEqual(nav_keys_count, 4)
+        self.assertGreaterEqual(nav_keys_count, 5)
 
         # Click Up arrow button
         self.run_browser("click", '.keycap[data-key="up"]')
+        self.run_browser("wait", "500")
+
+        # Click Alt+M button (send immediately)
+        self.run_browser("click", '.keycap[data-key="alt+m"]')
         self.run_browser("wait", "500")
 
         # Press physical ArrowDown key in terminal peek

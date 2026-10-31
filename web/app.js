@@ -445,6 +445,7 @@
           </div>
           <div class="pane-actions-bar">
             <button class="btn-tui-action primary" onclick="window.tuiPeek('${pid}', '${escapeHtml(chatTitle)} // ${pid}')">&gt; PEEK</button>
+            <button class="btn-tui-action send-now" onclick="window.tuiSendNow('${pid}')" title="Send queued message immediately (Alt+M)">&gt; ALT+M</button>
             <button class="btn-tui-action approve" onclick="window.tuiApprove('${pid}')">&gt; APPROVE (y)</button>
             <button class="btn-tui-action abort" onclick="window.tuiInterrupt('${pid}')">&gt; ABORT (^C)</button>
             <button class="btn-tui-action close" onclick="window.tuiClosePane('${pid}')" title="Close Pane">&gt; CLOSE</button>
@@ -454,6 +455,24 @@
     }).join('');
     updateCardSelection();
   }
+
+  // Quick Action Trigger: Alt+M (Send Immediately)
+  window.tuiSendNow = async function(paneId) {
+    const pid = paneId || activeTerminalPaneId;
+    if (!pid) return;
+    try {
+      await api('/api/keys', {
+        method: 'POST',
+        body: { pane_id: pid, key: 'alt+m' }
+      });
+      showToast(`⚡ [ALT+M] SENT IMMEDIATELY TO ${pid}`);
+      if (activeTerminalPaneId === pid) {
+        setTimeout(() => fetchPaneTerminal(pid), 300);
+      }
+    } catch (err) {
+      alert('Alt+M error: ' + err.message);
+    }
+  };
 
   // Quick Action Triggers
   window.tuiClosePane = async function(paneId) {
@@ -1521,6 +1540,17 @@
       const isInput = document.activeElement === tuiInputBox;
       const inputHasText = isInput && tuiInputBox.value && tuiInputBox.value.length > 0;
 
+      // Alt+M: Force send queued prompt immediately in Antigravity
+      if (e.altKey && (e.key === 'm' || e.key === 'M')) {
+        if (activeTerminalPaneId) {
+          e.preventDefault();
+          api('/api/keys', { method: 'POST', body: { pane_id: activeTerminalPaneId, key: 'alt+m' } }).catch(() => {});
+          showToast('⚡ [ALT+M] SENT IMMEDIATELY');
+          setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 350);
+          return;
+        }
+      }
+
       // Arrow keys: Up, Down, Left, Right
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (!inputHasText && activeTerminalPaneId) {
@@ -1566,6 +1596,19 @@
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
       return;
     }
+    // Alt+M on selected card in main panes view
+    if (e.altKey && (e.key === 'm' || e.key === 'M')) {
+      const cards = Array.from(document.querySelectorAll('.pane-box'));
+      const selCard = cards[selectedPaneIndex] || cards[0];
+      const targetPid = selCard ? selCard.getAttribute('data-pane-id') : null;
+      if (targetPid) {
+        e.preventDefault();
+        api('/api/keys', { method: 'POST', body: { pane_id: targetPid, key: 'alt+m' } }).catch(() => {});
+        showToast(`⚡ [ALT+M] SENT TO ${targetPid}`);
+        return;
+      }
+    }
+
     // Ignore if Ctrl / Meta / Alt is pressed
     if (e.ctrlKey || e.metaKey || e.altKey) {
       return;

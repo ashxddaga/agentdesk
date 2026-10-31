@@ -159,14 +159,8 @@ class AutonomousWatchdog:
 
                         if self.agentr:
                             try:
-                                self.agentr.post_message(
-                                    body=f"Agent {agent} in pane {pid} ({ws}) finished run in {dur_str}.",
-                                    sender=agent,
-                                    to="@all",
-                                    topic="tasks",
-                                    msg_type="chat"
-                                )
                                 bdata = self.agentr.get_board()
+                                found_task = None
                                 for t in bdata.get("board", {}).get("tasks", []):
                                     if t.get("status") == "in_progress" and t.get("agent") == agent:
                                         self.agentr.update_board_task(t.get("id"), "review")
@@ -174,7 +168,16 @@ class AutonomousWatchdog:
                                             f"Task {t.get('id')} finished by {agent} ({dur_str}). Moved to review.",
                                             agent=agent
                                         )
+                                        found_task = t
                                         break
+                                if found_task:
+                                    self.agentr.post_message(
+                                        body=f"Task {found_task.get('id')} ({found_task.get('title')}) completed by @{agent} in pane {pid} ({dur_str}). Moved to review.",
+                                        sender=agent,
+                                        to="@all",
+                                        topic="tasks",
+                                        msg_type="chat"
+                                    )
                             except Exception:
                                 pass
 
@@ -494,9 +497,9 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
 
             # API: Inter-agent message board / comms
             if path in ("/api/messages", "/api/comms"):
-                limit = int(params.get("limit", [40])[0]) if "limit" in params else 40
-                topic = params.get("topic", [None])[0]
-                recipient = params.get("to", [None])[0]
+                limit = int(qs.get("limit", ["40"])[0]) if "limit" in qs else 40
+                topic = qs.get("topic", [None])[0]
+                recipient = qs.get("to", [None])[0]
                 msgs = AGENTR.load_messages(limit=limit, topic=topic, recipient=recipient)
                 self.send_json({"status": "ok", "messages": msgs, "count": len(msgs)})
                 return
@@ -562,6 +565,8 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
                     normalized.append("tab")
                 elif k_lower in ("space", " "):
                     normalized.append("space")
+                elif k_lower in ("alt+m", "alt-m", "m+alt", "\x1bm", "meta+m"):
+                    normalized.append("alt+m")
                 elif k_lower in ("c", "^c", "ctrl+c", "ctrl-c", "\x03"):
                     normalized.append("ctrl+c")
                 elif k_lower in ("d", "^d", "ctrl+d", "ctrl-d", "\x04"):

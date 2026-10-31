@@ -79,7 +79,7 @@ class TestAgentDeskBackend(unittest.TestCase):
         self.assertTrue(any(a["type"] == "run.completed" for a in alerts))
 
         # Verify closed loop: comms message sent & task moved to review
-        self.assertTrue(any(m["topic"] == "tasks" and "finished run" in m["body"] for m in mock_ar.messages))
+        self.assertTrue(any(m["topic"] == "tasks" and ("completed by" in m["body"] or "finished run" in m["body"]) for m in mock_ar.messages))
         self.assertIn(("task-test-99", "review"), mock_ar.updated_tasks)
         self.assertTrue(len(mock_ar.feedbacks) > 0)
 
@@ -211,6 +211,20 @@ class TestAgentDeskBackend(unittest.TestCase):
                 get_data = json.loads(resp.read().decode())
                 self.assertEqual(get_data.get("status"), "ok")
                 self.assertIn("messages", get_data)
+
+            # Clean up the test message so we don't pollute live comms
+            mid = post_data.get("message", {}).get("id")
+            if mid:
+                from agentr.comms import get_messages_file, render_markdown_comms
+                fpath = get_messages_file("/home/ashish/Work")
+                if os.path.exists(fpath):
+                    with open(fpath, "r") as f:
+                        mdata = json.load(f)
+                    mdata["messages"] = [m for m in mdata.get("messages", []) if m.get("id") != mid]
+                    mdata["total_messages"] = len(mdata["messages"])
+                    with open(fpath, "w") as f:
+                        json.dump(mdata, f, indent=2)
+                    render_markdown_comms(mdata, "/home/ashish/Work")
         except Exception:
             pass
 
