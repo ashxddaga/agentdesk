@@ -173,10 +173,13 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "500")
 
         self.run_browser("click", 'button.tui-nav-btn[data-view="sessions-view"]')
-        self.run_browser("wait", "1500")
-
-        session_count_str = self.run_browser("get", "count", ".session-entry")
-        session_count = int(session_count_str) if session_count_str.isdigit() else 0
+        session_count = 0
+        for _ in range(8):
+            self.run_browser("wait", "500")
+            session_count_str = self.run_browser("get", "count", ".session-entry")
+            if session_count_str.isdigit() and int(session_count_str) > 0:
+                session_count = int(session_count_str)
+                break
         self.assertGreater(session_count, 0, "Expected at least one session item in Sessions view")
 
         # 13. Open a session log and verify live chat badge
