@@ -43,7 +43,7 @@ def handle_api_get(
         return True
 
     # API: Read specific pane terminal output
-    if path.startswith("/api/pane/") and path.endswith("/terminal"):
+    if path.startswith("/api/pane/") and (path.endswith("/terminal") or path.endswith("/read")):
         pane_id = path.strip("/").split("/")[2]
         pane_id = unquote(pane_id)
         lines_str = qs.get("lines", ["120"])[0]

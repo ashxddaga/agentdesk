@@ -160,10 +160,14 @@ def run_server(bind: str = "0.0.0.0", port: int = 9876) -> None:
     WATCHDOG.start()
 
     server = ThreadingHTTPServer((bind, port), AgentDeskHandler)
+    server.daemon_threads = True
 
     def _sig_handler(sig: int, frame: Any) -> None:
         print("\nShutting down AgentDesk server...")
-        server.shutdown()
+        try:
+            server.server_close()
+        except Exception:
+            pass
         sys.exit(0)
 
     signal.signal(signal.SIGINT, _sig_handler)

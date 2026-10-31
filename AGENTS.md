@@ -23,9 +23,21 @@ python3 -m agentdesk.server
 Run test suite (Backend Unit Tests + Browser E2E Tests):
 ```bash
 ./run_tests.sh
-# or: python3 -m unittest discover tests -v
 ```
-The test suite includes automated mobile browser tests (`tests/test_e2e_browser.py` via `agent-browser`) that open the mobile cockpit, type prompts into the message box, and verify that commands execute and generate output in the live terminal.
+
+Run mandatory pre-push CI gate & quality audit:
+```bash
+./bin/ci
+```
+The automated CI gate enforces 6 mandatory checks before any push:
+1. Python compilation integrity (`py_compile`)
+2. Zero external dependencies audit (stdlib only)
+3. Secret and credential leak scan
+4. 22 Unit and Browser E2E tests (`./run_tests.sh`)
+5. 19 Agentic UI capabilities via `agent-browser` (`./bin/agentic-tester`)
+6. Git working tree cleanliness and hygiene
+
+A git pre-push hook is installed at `.git/hooks/pre-push` to automatically run `./bin/ci` prior to `git push`.
 
 Install as systemd user service:
 ```bash
