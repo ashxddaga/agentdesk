@@ -36,10 +36,28 @@ class TestAgentDeskBackend(unittest.TestCase):
         self.assertIn("agentdesk", names)
 
     def test_autonomous_watchdog_lifecycle(self):
-        dog = AutonomousWatchdog()
+        # Create a mock agentr bridge to test closed-loop coordination
+        class MockAgentR:
+            def __init__(self):
+                self.messages = []
+                self.updated_tasks = []
+                self.feedbacks = []
+            def post_message(self, **kwargs):
+                self.messages.append(kwargs)
+                return {"status": "ok"}
+            def get_board(self, **kwargs):
+                return {"status": "ok", "board": {"tasks": [{"id": "task-test-99", "status": "in_progress", "agent": "agy"}]}}
+            def update_board_task(self, tid, status, **kwargs):
+                self.updated_tasks.append((tid, status))
+                return True
+            def add_board_feedback(self, text, agent="mobile", **kwargs):
+                self.feedbacks.append((text, agent))
+
+        mock_ar = MockAgentR()
+        dog = AutonomousWatchdog(agentr=mock_ar)
         # Mock active pane
         mock_panes = [
-            {"pane_id": "test:p1", "agent": "agy", "agent_status": "working"}
+            {"pane_id": "test:p1", "agent": "agy", "agent_status": "working", "workspace_name": "test_ws"}
         ]
         dog.update(mock_panes)
         tel = dog.get_telemetry("test:p1")
@@ -47,9 +65,9 @@ class TestAgentDeskBackend(unittest.TestCase):
         self.assertEqual(tel["turns"], 1)
         self.assertGreater(tel["estimated_tokens"], 0)
 
-        # Transition to idle (run completed)
+        # Transition to idle (run completed) -> should close loop
         mock_panes_idle = [
-            {"pane_id": "test:p1", "agent": "agy", "agent_status": "idle"}
+            {"pane_id": "test:p1", "agent": "agy", "agent_status": "idle", "workspace_name": "test_ws"}
         ]
         dog.update(mock_panes_idle)
         tel_after = dog.get_telemetry("test:p1")
@@ -59,6 +77,18 @@ class TestAgentDeskBackend(unittest.TestCase):
         # Alerts popped
         alerts = dog.pop_alerts()
         self.assertTrue(any(a["type"] == "run.completed" for a in alerts))
+
+        # Verify closed loop: comms message sent & task moved to review
+        self.assertTrue(any(m["topic"] == "tasks" and "finished run" in m["body"] for m in mock_ar.messages))
+        self.assertIn(("task-test-99", "review"), mock_ar.updated_tasks)
+        self.assertTrue(len(mock_ar.feedbacks) > 0)
+
+        # Transition into blocked -> should emit blocker message
+        mock_panes_blocked = [
+            {"pane_id": "test:p1", "agent": "agy", "agent_status": "blocked", "workspace_name": "test_ws"}
+        ]
+        dog.update(mock_panes_blocked)
+        self.assertTrue(any(m["topic"] == "blocker" and "BLOCKED" in m["body"] for m in mock_ar.messages))
 
     def test_agentr_bridge_sessions(self):
         agentr = AgentRBridge()

@@ -157,6 +157,27 @@ class AutonomousWatchdog:
                             "text": f"🎉 {agent.upper()} in {ws} finished in {dur_str}!",
                         })
 
+                        if self.agentr:
+                            try:
+                                self.agentr.post_message(
+                                    body=f"Agent {agent} in pane {pid} ({ws}) finished run in {dur_str}.",
+                                    sender=agent,
+                                    to="@all",
+                                    topic="tasks",
+                                    msg_type="chat"
+                                )
+                                bdata = self.agentr.get_board()
+                                for t in bdata.get("board", {}).get("tasks", []):
+                                    if t.get("status") == "in_progress" and t.get("agent") == agent:
+                                        self.agentr.update_board_task(t.get("id"), "review")
+                                        self.agentr.add_board_feedback(
+                                            f"Task {t.get('id')} finished by {agent} ({dur_str}). Moved to review.",
+                                            agent=agent
+                                        )
+                                        break
+                            except Exception:
+                                pass
+
                 # Transition into blocked (needs approval)
                 if status == "blocked" and prev_status != "blocked":
                     self.alert_events.append({
@@ -166,6 +187,18 @@ class AutonomousWatchdog:
                         "workspace": ws,
                         "text": f"⚠️ {agent.upper()} in {ws} needs tool approval!",
                     })
+
+                    if self.agentr:
+                        try:
+                            self.agentr.post_message(
+                                body=f"⚠️ Agent {agent} in pane {pid} ({ws}) is BLOCKED and waiting for approval or input.",
+                                sender=agent,
+                                to="@all",
+                                topic="blocker",
+                                msg_type="blocker"
+                            )
+                        except Exception:
+                            pass
 
             # Clean dead runs
             for pid in list(self.active_runs.keys()):
