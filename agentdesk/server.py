@@ -550,8 +550,22 @@ class AgentDeskHandler(BaseHTTPRequestHandler):
             normalized = []
             for k in raw_keys:
                 k_lower = str(k).lower().strip()
-                if k_lower in ("c", "^c", "ctrl+c", "ctrl-c", "\x03"):
+                if k_lower in ("up", "arrowup", "\x1b[a"):
+                    normalized.append("up")
+                elif k_lower in ("down", "arrowdown", "\x1b[b"):
+                    normalized.append("down")
+                elif k_lower in ("left", "arrowleft", "\x1b[d"):
+                    normalized.append("left")
+                elif k_lower in ("right", "arrowright", "\x1b[c"):
+                    normalized.append("right")
+                elif k_lower in ("tab", "\t"):
+                    normalized.append("tab")
+                elif k_lower in ("space", " "):
+                    normalized.append("space")
+                elif k_lower in ("c", "^c", "ctrl+c", "ctrl-c", "\x03"):
                     normalized.append("ctrl+c")
+                elif k_lower in ("d", "^d", "ctrl+d", "ctrl-d", "\x04"):
+                    normalized.append("ctrl+d")
                 elif k_lower in ("enter", "return", "\n", "\r", "\r\n"):
                     normalized.append("enter")
                 elif k_lower in ("esc", "escape", "\x1b"):

@@ -256,6 +256,34 @@ class TestAgentDeskBrowserE2E(unittest.TestCase):
         self.run_browser("wait", "600")
         self.assertEqual(self.run_browser("is", "visible", "#comms-modal-overlay"), "false")
 
+        # 12. Test j/k navigation across pane cards
+        self.run_browser("press", "j")
+        self.run_browser("wait", "400")
+        selected_count = int(self.run_browser("get", "count", ".pane-box.is-selected"))
+        self.assertGreaterEqual(selected_count, 1)
+
+        # 13. Test Terminal Peek Virtual D-Pad and Key Forwarding
+        self.run_browser("press", "Enter")
+        self.run_browser("wait", "1000")
+        self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "true")
+
+        # Check virtual D-pad buttons exist
+        nav_keys_count = int(self.run_browser("get", "count", ".keycap.nav-key"))
+        self.assertGreaterEqual(nav_keys_count, 4)
+
+        # Click Up arrow button
+        self.run_browser("click", '.keycap[data-key="up"]')
+        self.run_browser("wait", "500")
+
+        # Press physical ArrowDown key in terminal peek
+        self.run_browser("press", "ArrowDown")
+        self.run_browser("wait", "500")
+
+        # Close terminal modal with Escape
+        self.run_browser("press", "Escape")
+        self.run_browser("wait", "600")
+        self.assertEqual(self.run_browser("is", "visible", "#terminal-modal-overlay"), "false")
+
 
 if __name__ == "__main__":
     unittest.main()

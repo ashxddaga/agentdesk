@@ -688,11 +688,56 @@ main {
   border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
+  transition: all 0.1s ease;
+}
+
+.keycap:hover {
+  background: #21262d;
+  border-color: #484f58;
 }
 
 .keycap:active {
   background: var(--blue);
   color: #000;
+  transform: translateY(1px);
+}
+
+.keycap.nav-key {
+  color: var(--cyan);
+  border-color: rgba(56, 189, 248, 0.45);
+  font-weight: 700;
+}
+
+.keycap.nav-key:active {
+  background: var(--cyan);
+  color: #000;
+}
+
+.keycap.action-key {
+  color: var(--green);
+  border-color: rgba(34, 197, 94, 0.45);
+  font-weight: 700;
+}
+
+.keycap.action-key:active {
+  background: var(--green);
+  color: #000;
+}
+
+.keycap.abort-key {
+  color: var(--red);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.keycap.abort-key:active {
+  background: var(--red);
+  color: #fff;
+}
+
+.pane-box.is-selected {
+  outline: 2px solid var(--cyan) !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
 }
 
 .tui-input-line {

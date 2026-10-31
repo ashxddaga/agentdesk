@@ -210,14 +210,20 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
       </div>
       <div class="terminal-stream-box" id="terminal-stream-content">Loading stream…</div>
       
-      <!-- Keypad row -->
-      <div class="tui-keypad">
-        <button class="keycap" data-action="y_enter">y + ↵</button>
-        <button class="keycap" data-key="enter">↵ Enter</button>
-        <button class="keycap" data-action="n_enter">n</button>
-        <button class="keycap" data-key="ctrl+c">^C Abort</button>
-        <button class="keycap" data-key="esc">Esc</button>
-        <button class="keycap" id="btn-tui-scroll">⬇ End</button>
+      <!-- Keypad row: Directional navigation & interactive terminal keys -->
+      <div class="tui-keypad" id="tui-terminal-keypad">
+        <button class="keycap nav-key" data-key="up" title="Up Arrow (navigate choices / models)">▲ Up</button>
+        <button class="keycap nav-key" data-key="down" title="Down Arrow (navigate choices / models)">▼ Down</button>
+        <button class="keycap nav-key" data-key="left" title="Left Arrow">◄ Left</button>
+        <button class="keycap nav-key" data-key="right" title="Right Arrow">► Right</button>
+        <button class="keycap" data-key="tab" title="Tab">⇥ Tab</button>
+        <button class="keycap" data-key="space" title="Space (toggle checkbox / option)">␣ Space</button>
+        <button class="keycap action-key" data-key="enter" title="Enter">↵ Enter</button>
+        <button class="keycap action-key" data-action="y_enter" title="Approve">y + ↵</button>
+        <button class="keycap" data-action="n_enter" title="Reject">n</button>
+        <button class="keycap abort-key" data-key="ctrl+c" title="Abort process">^C</button>
+        <button class="keycap" data-key="esc" title="Escape">Esc</button>
+        <button class="keycap" id="btn-tui-scroll" title="Scroll to latest output">⬇ End</button>
       </div>
 
       <!-- Quick Prompt Chips -->
@@ -374,6 +380,9 @@ agentr task dispatch task-15 --teamwork small --pane</pre>
   <!-- Desktop Terminal Shortcut Legend Bar -->
   <div class="desktop-shortcut-bar" id="desktop-shortcut-bar">
     <span><kbd>Esc</kbd> Close / Back</span>
+    <span><kbd>j</kbd>/<kbd>k</kbd> Panes</span>
+    <span><kbd>↵</kbd> Peek</span>
+    <span><kbd>▲</kbd><kbd>▼</kbd> Select Menu</span>
     <span><kbd>1</kbd> Panes</span>
     <span><kbd>2</kbd> Sessions</span>
     <span><kbd>3</kbd> Swarm</span>

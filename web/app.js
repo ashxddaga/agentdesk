@@ -285,6 +285,22 @@
     });
   }
 
+  let selectedPaneIndex = 0;
+
+  function updateCardSelection(cards) {
+    if (!cards) cards = Array.from(document.querySelectorAll('.pane-box'));
+    if (!cards || cards.length === 0) return;
+    if (selectedPaneIndex < 0) selectedPaneIndex = 0;
+    if (selectedPaneIndex >= cards.length) selectedPaneIndex = cards.length - 1;
+    cards.forEach((c, idx) => {
+      if (idx === selectedPaneIndex) {
+        c.classList.add('is-selected');
+      } else {
+        c.classList.remove('is-selected');
+      }
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Render Herdr Panes & Telemetry Badges
   // -------------------------------------------------------------------------
@@ -436,6 +452,7 @@
         </div>
       `;
     }).join('');
+    updateCardSelection();
   }
 
   // Quick Action Triggers
@@ -1499,6 +1516,52 @@
       }
     }
 
+    // Terminal Peek Modal Interactive Keyboard Control (Arrows, Tab, Space, Enter for model selection / menus)
+    if (terminalModalOverlay && terminalModalOverlay.style.display !== 'none' && terminalModalOverlay.style.display !== '') {
+      const isInput = document.activeElement === tuiInputBox;
+      const inputHasText = isInput && tuiInputBox.value && tuiInputBox.value.length > 0;
+
+      // Arrow keys: Up, Down, Left, Right
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (!inputHasText && activeTerminalPaneId) {
+          e.preventDefault();
+          const keyMap = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+          const k = keyMap[e.key];
+          api('/api/keys', { method: 'POST', body: { pane_id: activeTerminalPaneId, key: k } }).catch(() => {});
+          showToast(`✓ [${k.toUpperCase()}]`);
+          setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
+          return;
+        }
+      }
+
+      // Tab key (cycles options / completions in CLI)
+      if (e.key === 'Tab' && !inputHasText && activeTerminalPaneId) {
+        e.preventDefault();
+        api('/api/keys', { method: 'POST', body: { pane_id: activeTerminalPaneId, key: 'tab' } }).catch(() => {});
+        showToast('✓ [TAB]');
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
+        return;
+      }
+
+      // Space key (selects option / toggles checkboxes in CLI prompt)
+      if (e.key === ' ' && !isInput && activeTerminalPaneId) {
+        e.preventDefault();
+        api('/api/keys', { method: 'POST', body: { pane_id: activeTerminalPaneId, key: 'space' } }).catch(() => {});
+        showToast('✓ [SPACE]');
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
+        return;
+      }
+
+      // Enter key when input is not focused (submits selected choice)
+      if (e.key === 'Enter' && !isInput && activeTerminalPaneId) {
+        e.preventDefault();
+        api('/api/keys', { method: 'POST', body: { pane_id: activeTerminalPaneId, key: 'enter' } }).catch(() => {});
+        showToast('✓ [ENTER]');
+        setTimeout(() => fetchPaneTerminal(activeTerminalPaneId), 250);
+        return;
+      }
+    }
+
     // Do not trigger single-key desktop shortcuts while typing in inputs
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
       return;
@@ -1506,6 +1569,62 @@
     // Ignore if Ctrl / Meta / Alt is pressed
     if (e.ctrlKey || e.metaKey || e.altKey) {
       return;
+    }
+
+    // Main Dashboard Panes Keyboard Navigation (j/k, Up/Down, Enter to peek, x to close, y to approve)
+    const panesView = document.getElementById('panes-view');
+    const isMainPanesView = panesView && panesView.classList.contains('active');
+    const noModalOpen = (!terminalModalOverlay || terminalModalOverlay.style.display === 'none' || terminalModalOverlay.style.display === '') &&
+                        (!launcherModalOverlay || launcherModalOverlay.style.display === 'none' || launcherModalOverlay.style.display === '') &&
+                        (!boardModalOverlay || boardModalOverlay.style.display === 'none' || boardModalOverlay.style.display === '') &&
+                        (!commsModalOverlay || commsModalOverlay.style.display === 'none' || commsModalOverlay.style.display === '') &&
+                        (!sessionDetailOverlay || sessionDetailOverlay.style.display === 'none' || sessionDetailOverlay.style.display === '');
+
+    if (isMainPanesView && noModalOpen) {
+      const cards = Array.from(document.querySelectorAll('.pane-box'));
+      if (cards.length > 0) {
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedPaneIndex = (selectedPaneIndex + 1) % cards.length;
+          updateCardSelection(cards);
+          return;
+        } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedPaneIndex = (selectedPaneIndex - 1 + cards.length) % cards.length;
+          updateCardSelection(cards);
+          return;
+        } else if (e.key === 'Enter') {
+          const selCard = cards[selectedPaneIndex] || cards[0];
+          if (selCard) {
+            const btn = selCard.querySelector('button.primary');
+            if (btn) {
+              e.preventDefault();
+              btn.click();
+              return;
+            }
+          }
+        } else if (e.key === 'x' || e.key === 'X') {
+          const selCard = cards[selectedPaneIndex] || cards[0];
+          if (selCard) {
+            const pid = selCard.getAttribute('data-pane-id');
+            if (pid) {
+              e.preventDefault();
+              window.tuiClosePane(pid);
+              return;
+            }
+          }
+        } else if (e.key === 'y' || e.key === 'Y') {
+          const selCard = cards[selectedPaneIndex] || cards[0];
+          if (selCard) {
+            const pid = selCard.getAttribute('data-pane-id');
+            if (pid) {
+              e.preventDefault();
+              window.tuiApprove(pid);
+              return;
+            }
+          }
+        }
+      }
     }
 
     // Shortcuts
